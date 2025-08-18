@@ -205,6 +205,12 @@ export class BookingService {
     }
   }
 
+  async getBooking(bookingId: number): Promise<Booking> {
+    return this.dataSource.getRepository(Booking).findOne({
+      where: {id: bookingId},
+      relations: ["profile", "aidService", "aidServiceProfile", "aidServiceProfile.profile" ]
+    })
+  }
   async getBookingEligibleProfiles(dto: {
     aidServiceId: number;
     bookingStartDateTime: string;

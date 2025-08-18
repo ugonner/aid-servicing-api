@@ -9,7 +9,7 @@ import { ApiTags } from '@nestjs/swagger';
 
 @ApiTags("report")
 @Controller('report')
-export class ReviewController {
+export class ReportController {
     constructor(
         private reportService: ReportService
     ){}
