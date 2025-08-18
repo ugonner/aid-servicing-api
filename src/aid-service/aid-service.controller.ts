@@ -100,4 +100,12 @@ export class AidServiceController {
         const res = await this.aidServiceService.getAidServiceProfile(aidServiceProfileId);
         return ApiResponse.success("Aid service profile fetched successfully", res);
     }
+
+    @Get("/:aidServiceId")
+    async getAidService(
+        @Param("aidServiceId", new ParseIntPipe()) aidServiceId: number
+    ){
+        const res = await this.aidServiceService.getAidService(aidServiceId);
+        return ApiResponse.success("Aid service fetched successfully", res);
+    }
 }

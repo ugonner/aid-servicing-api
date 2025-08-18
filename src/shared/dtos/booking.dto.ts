@@ -1,9 +1,41 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsBooleanString, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsBoolean, IsBooleanString, IsEnum, IsNumber, IsOptional, IsString, IsUrl, ValidateNested } from "class-validator";
 import { ILocationAddressDTO } from "./aid-service.dto";
 import { QueryDateDTO } from "./query-request.dto copy";
 import { BookingStatus } from "../enums/booking.enum";
+
+export class VirtualLocationAddressDTO {
+    @ApiProperty()
+    @IsUrl()
+    linkAddress: string;
+
+    @ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    passCode?: string;
+    
+@ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    userName?: string;
+
+    
+    @ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    platform?: string;
+
+    @ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    additionalNotes?: string;
+
+
+}
+
+
+
 
 export class BookingDTO {
 
@@ -13,9 +45,18 @@ export class BookingDTO {
     @IsOptional()
     bookingNote?: string;
     
+    @ApiPropertyOptional()
     @ValidateNested()
     @Type(() => ILocationAddressDTO)
-    locationAddress: ILocationAddressDTO
+    @IsOptional()
+    locationAddress?: ILocationAddressDTO;
+    
+@ApiPropertyOptional()
+    @ValidateNested()
+    @Type(() => VirtualLocationAddressDTO)
+    @IsOptional()
+    virtualLocationAddress?: VirtualLocationAddressDTO
+
     
     @ApiProperty()
     @IsString()
@@ -51,4 +92,22 @@ export class QueryBookingDTO extends QueryDateDTO {
     @IsBooleanString()
     @IsOptional()
     isMatched: string;
+}
+
+export class ServiceDeliveryConfirmationDTO {
+    @ApiProperty()
+    @IsBoolean()
+    isVirtualLocation: boolean;
+
+}
+
+export class UpdateBookingStatusDTO {
+    @ApiProperty()
+    @IsEnum(BookingStatus)
+    bookingStatus: BookingStatus;
+
+    @ApiPropertyOptional()
+    @IsString()
+    @IsOptional()
+    bookingStatusNote?: string;
 }

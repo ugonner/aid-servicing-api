@@ -29,7 +29,14 @@ export class CallRoom {
     callPurpose: callPurpose;
     
     @Column()
-    callType: CallType
+    callType: CallType;
+
+    
+  @Column({type: "float", default: 0})
+  rating: number;
+
+  @Column({nullable: true})
+  review: string;
 
     @ManyToOne(() => AidServiceProfile, (aidServiceProfile) => aidServiceProfile.calls)
     @JoinColumn()

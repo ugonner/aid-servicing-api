@@ -67,7 +67,7 @@ export class CallService {
 
     
       const initiatorWallet = await queryRunner.manager.findOne(ProfileWallet, {where: {profile: {userId: initiatedByProfile.userId}}})
-      initiatorWallet.balance = Number(initiatorWallet.balance) - callCost;
+      initiatorWallet.earnedBalance = Number(initiatorWallet.earnedBalance) - callCost;
       await queryRunner.manager.save(ProfileWallet, initiatorWallet);
 
 

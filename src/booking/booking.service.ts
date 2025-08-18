@@ -32,11 +32,9 @@ export class BookingService {
           },
         );
 
-        const [bookingStartDate, bookingStartTimePart] = bookingDto.startDate.split("T");
-
         const availableProfiles = await this.getBookingEligibleProfiles({
-          bookingStartDate,
-          bookingStartHour: bookingStartTimePart.split(':')[0],
+          bookingStartDateTime: bookingDto.startDate,
+         bookingEndDateTime: new Date(new Date(bookingDto.startDate).getTime() + Number(bookingDto.duration)).toISOString(),
           aidServiceId: bookingDto.aidServiceId,
         });
         if (aidServiceProfile.aidService?.id !== bookingDto.aidServiceId)
@@ -69,18 +67,15 @@ export class BookingService {
 
       if (!aidService)
         throw new BadRequestException('Aid service does not exist');
-      const startTime = `${new Date(bookingDto.startDate).getHours().toString().padStart(2, '0')}:${new Date(bookingDto.startDate).getMinutes().toString().padStart(2, '0')}`;
-
+     
       const endDate = new Date(
         new Date(bookingDto.startDate).getTime() + Number(bookingDto.duration),
-      );
-      const endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+      ).toISOString();
+      
       const bookingInstance: Booking = queryRunner.manager.create(Booking, {
         ...bookingDto,
-        startDate: bookingDto.startDate.split('T')[0],
-        startTime,
-        endDate: endDate.toISOString().split('T')[0],
-        endTime,
+        startDate: bookingDto.startDate,
+        endDate,
         aidService,
         profile,
       });
@@ -100,8 +95,8 @@ export class BookingService {
         );
 
         const availableProfiles = await this.getBookingEligibleProfiles({
-          bookingStartDate: bookingInstance.startDate,
-          bookingStartHour: bookingInstance.startTime.split(':')[0],
+          bookingStartDateTime: bookingInstance.startDate,
+          bookingEndDateTime: bookingInstance.endDate,
           aidServiceId: aidServiceId,
         });
         if (aidServiceProfile.aidService?.id !== aidServiceId)
@@ -212,10 +207,14 @@ export class BookingService {
 
   async getBookingEligibleProfiles(dto: {
     aidServiceId: number;
-    bookingStartDate: string;
-    bookingStartHour: string;
+    bookingStartDateTime: string;
+    bookingEndDateTime: string;
   }): Promise<Profile[]> {
-    const { bookingStartDate, bookingStartHour, aidServiceId } = dto;
+    const { bookingStartDateTime, aidServiceId, bookingEndDateTime } = dto;
+    
+    const oneHourAfterEndTime = new Date((new Date(bookingEndDateTime).getTime()) + (1* 60 * 60 * 1000)).toISOString();
+    const oneHourBeforeStartTime = new Date((new Date(bookingStartDateTime).getTime()) - (1* 60 * 60 * 1000)).toISOString();
+   
     const queryBuilder = this.dataSource
       .getRepository(Profile)
       .createQueryBuilder('profile');
@@ -228,15 +227,10 @@ export class BookingService {
         aidServiceId,
       })
       .andWhere(
-        '((bookings.startDate > :bookingStartDate) && (bookings.endDate < :bookingStartDate)) || ((LEFT(bookings.startTime, 2) > :bookingStartHour) || (LEFT(bookings.endTime, 2) < :bookingEndHour) ) ',
+       "((bookings.startDate) >= :oneHourAfterEndTime) || ((bookings.endDate) <= :oneHourBeforeStartTime) ",
         {
-          bookingStartDate,
-          bookingStartHour: (Number(bookingStartHour) + 1)
-            .toString()
-            .padStart(2, '0'),
-          bookingEndHour: (Number(bookingStartHour) - 1)
-            .toString()
-            .padStart(2, '0'),
+          oneHourAfterEndTime,
+          oneHourBeforeStartTime,
         },
       );
 
@@ -254,8 +248,8 @@ export class BookingService {
             relations: ["profile", "aidService", "aidServiceProfile"]
         }) : (bookingData as Booking);
       const eligibleProfiles = await this.getBookingEligibleProfiles({
-        bookingStartDate: booking.startDate,
-        bookingStartHour: booking.startTime.split(':')[0],
+        bookingStartDateTime: booking.startDate,
+        bookingEndDateTime: booking.endDate,
         aidServiceId: booking.aidService.id,
       });
       if (eligibleProfiles?.length > 0) {
@@ -357,7 +351,7 @@ export class BookingService {
 
     if (startDate || endDate || dDate) {
       queryBuilder = handleDateQuery<Booking>(
-        { startDate, endDate, dDate, entityAlias: 'product' },
+        { startDate, endDate, dDate, entityAlias: 'booking' },
         queryBuilder,
         'createdAt',
       );

@@ -16,6 +16,8 @@ import { FileUploadModule } from './file-upload/file-upload.module';
 import * as path from 'path';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { BookingModule } from './booking/booking.module';
+import { ReviewModule } from './review/review.module';
+import { ReportModule } from './report/report.module';
 
 @Module({
   imports: [
@@ -63,6 +65,8 @@ import { BookingModule } from './booking/booking.module';
     MailModule,
     FileUploadModule,
     BookingModule,
+    ReviewModule,
+    ReportModule,
   
 
   ],

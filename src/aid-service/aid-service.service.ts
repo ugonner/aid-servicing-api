@@ -38,6 +38,8 @@ import { Tag } from '../entities/tag.entity';
 import { TagDTO } from '../shared/dtos/tag.dto';
 import { AidServiceTag } from '../entities/aid-service-tag.entity';
 import { handleDateQuery } from '../shared/helpers/db';
+import { AidServiceProfileSelectFields } from './datasets/aid-service-profile-select';
+import { AidServiceSelectFields } from './datasets/aid-service-selection';
 
 @Injectable()
 export class AidServiceService {
@@ -184,6 +186,7 @@ export class AidServiceService {
     const repository = this.dataSource.manager.getRepository(AidService);
     return repository
       .createQueryBuilder('aidService')
+      .select(AidServiceSelectFields)
       .leftJoinAndSelect('aidService.aidServiceTags', 'aidServiceTags')
       .leftJoinAndSelect('aidServiceTags.tag', 'tags');
   }
@@ -238,6 +241,10 @@ export class AidServiceService {
       let queryStr = `LOWER(aidservice.name) LIKE :searchTerm`;
       searchFields.forEach((field) => {
         queryStr += ` OR LOWER(aidservice.${field}) LIKE :searchTerm`;
+      });
+
+      ["name"].forEach((field) => {
+        queryStr += ` OR LOWER(tags.${field}) LIKE :searchTerm`;
       });
 
       queryBuilder.andWhere(queryStr, {
@@ -468,8 +475,7 @@ export class AidServiceService {
       verificationStatus,
       aidServiceId,
       userId,
-      searchTerm,
-      ...queryFields
+      searchTerm
     } = dto;
 
     const queryOrder = dto.order ? dto.order : 'ASC';
@@ -478,35 +484,35 @@ export class AidServiceService {
 
     const queryBuilder = this.dataSource
       .getRepository(AidServiceProfile)
-      .createQueryBuilder('aidServiceProfiles')
-      .leftJoinAndSelect('aidServiceProfiles.profile', 'profile')
-      .leftJoin('aidServiceProfiles.aidService', 'aidService')
-      .leftJoinAndSelect('aidService.aidServiceTag', 'aidServiceTags')
-      .leftJoinAndSelect('aidServiceTags.tag', 'tags')
-      .where('aidServiceProfiles.isDeleted = true');
+      .createQueryBuilder('aidServiceProfile')
+      .select(AidServiceProfileSelectFields)
+      .leftJoinAndSelect('aidServiceProfile.profile', 'profile')
+      .leftJoin('aidServiceProfile.aidService', 'aidService')
+      .where('aidServiceProfiles.isDeleted = false');
 
     if (aidServiceId) {
       queryBuilder.andWhere('aidService.id = :aidServiceId', { aidServiceId });
     }
+
+    if (userId) {
+      queryBuilder.andWhere('profile = :userId', { userId });
+    }
+
     if (userId) {
       queryBuilder.andWhere('profile = :userId', { userId });
     }
 
     if (verificationStatus) {
       queryBuilder.andWhere(
-        'aidServiceProfiles.verificationStatus = :verificationStatus',
+        'aidServiceProfile.verificationStatus = :verificationStatus',
         { verificationStatus },
       );
     }
 
     if (searchTerm) {
-      let searchFields = ['description'];
-      let queryStr = `LOWER(aidserviceProfiles.name) LIKE :searchTerm`;
-      searchFields.forEach((field) => {
-        queryStr += ` OR LOWER(aidserviceProfiles.${field}) LIKE :searchTerm`;
-      });
-
-      searchFields = ['email', 'firstName', 'lastName'];
+      let queryStr = `LOWER(aidserviceProfile.name) LIKE :searchTerm`;
+      
+      let searchFields = ['email', 'firstName', 'lastName', "disabilityType"];
       searchFields.forEach((field) => {
         queryStr += ` OR LOWER(profile.${field}) LIKE :searchTerm`;
       });
@@ -517,12 +523,18 @@ export class AidServiceService {
     }
 
     const [data, total] = await queryBuilder
-      .orderBy('aidServiceProfiles.createdAt', queryOrder)
+      .orderBy('aidServiceProfile.createdAt', queryOrder)
       .skip((queryPage - 1) * queryLimit)
       .limit(queryLimit)
       .getManyAndCount();
 
     return { limit: queryLimit, page: queryPage, total, data };
+  }
+
+  async getAidService(aidServiceId: number): Promise<AidService> {
+    return await this.dataSource.getRepository(AidService).findOne({
+      where: {id: aidServiceId},
+    })
   }
 
   async getAidServiceProfile(aidServiceProfileId: number): Promise<AidServiceProfile> {

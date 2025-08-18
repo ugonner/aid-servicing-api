@@ -36,6 +36,9 @@ export class AidService {
   videoCallRate?: number;
   @Column({ nullable: true })
   onSiteRate?: number;
+  
+  @Column({ nullable: true })
+  virtualServiceRate?: number;
 
   @OneToMany(
     () => AidServiceProfile,

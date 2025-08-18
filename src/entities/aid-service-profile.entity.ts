@@ -34,6 +34,8 @@ export class AidServiceProfile {
   videoCallEarnings?: number;
   @Column({ default: 0.0 })
   onSiteEarnings?: number;
+  @Column({ default: 0.0 })
+  virtualServiceEarnings?: number;
   
   @Column({ default: 0.0 })
   totalEarningsBalance?: number;
@@ -46,10 +48,13 @@ export class AidServiceProfile {
   
   @Column({ default: 0 })
   noOfOnSiteServices?: number;
+
+  @Column({ default: 0 })
+  noOfVirtualServices?: number;
   
   @Column({ default: 0 })
   totalServicesRendered: number;
-  
+
   @Column({nullable: true})
   businessDocumentUrl?: string;
   
@@ -67,6 +72,12 @@ export class AidServiceProfile {
   
   @Column({nullable: true})
   verificationComment: string;
+  
+  @Column({type: "float", default: 0})
+  averageRating: number;
+
+  @Column({type: "float", default: 0})
+  noOfRatings: number;
   
   @ManyToOne(() => Profile)
   @JoinColumn()

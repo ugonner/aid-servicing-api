@@ -6,6 +6,7 @@ import { ILocationAddressDTO } from "../shared/dtos/aid-service.dto";
 import { Profile } from "./user.entity";
 import { AidService } from "./aid-service.entity";
 import { AidServiceProfile } from "./aid-service-profile.entity";
+import { VirtualLocationAddressDTO } from "../shared/dtos/booking.dto";
 
 @Entity()
 export class Booking {
@@ -17,6 +18,11 @@ export class Booking {
 
   @Column({default: BookingStatus.PENDING})
   bookingStatus: BookingStatus;
+
+  
+
+    @Column({nullable: true})
+  bookingStatusNote?: string;
 
   @Column({default: PaymentStatus.NOT_PAID})
   paymentStatus: PaymentStatus;
@@ -30,19 +36,18 @@ export class Booking {
   @Column({type: "json"})
   locationAddress: ILocationAddressDTO
 
+  @Column({type: "json"})
+  virtualLocationAddress: VirtualLocationAddressDTO
+
   @Column()
   startDate: string;
-  @Column()
-  startTime: string;
-
+  
+  
   @Column()
   endDate: string;
  
-  @Column()
-  endTime: string;
-
   @Column({default: 0})
-duration: number;
+  duration: number;
 
 @Column({type: "bool", default: false})
 isMatched: boolean;
@@ -51,6 +56,17 @@ confirmedByProvider: boolean;
 @Column({type: "bool", default: false})
 confirmedByUser: boolean;
 
+@Column({type: "bool", default: false})
+isVirtualLocation: boolean;
+
+
+  @Column({type: "float", default: 0})
+  rating: number;
+
+  @Column({nullable: true})
+  review: string;
+
+  
 @ManyToOne(() => AidService, (aidService) => aidService.bookings)
 aidService: AidService;
 
