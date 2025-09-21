@@ -19,10 +19,12 @@ export class AidServiceController {
     ){}
 
     @Post()
+    @UseGuards(JwtGuard)
     async createAidService(
-        @Body() payload: AidServiceDTO
+        @Body() payload: AidServiceDTO,
+        @User("userId") userId: string
     ){
-        const res = await this.aidServiceService.createAidService(payload);
+        const res = await this.aidServiceService.createAidService(userId, payload);
         return ApiResponse.success("Aid service created", res);
     }
 
@@ -49,17 +51,26 @@ export class AidServiceController {
 
     @Post("/profile/application")
     @UseGuards(JwtGuard)
+    async createAidServiceProfileApplication(
+        @Body() payload: AidServiceProfileApplicationDTO,
+        @User("userId") userId: string
+    ){
+        const res = await this.aidServiceService.createOrUpdateAidServiceProfile(userId, payload);
+        return ApiResponse.success("Application created successfully", res);
+    }
+
+
+    @Put("/profile/application")
+    @UseGuards(JwtGuard)
     async updateAidServiceProfileApplication(
         @Body() payload: AidServiceProfileApplicationDTO,
         @User("userId") userId: string
     ){
-        console.log("payload", payload);
-        const res = await this.aidServiceService.applyForAidServiceProfile(userId, payload);
-        console.log("RES ", res);
+        const res = await this.aidServiceService.createOrUpdateAidServiceProfile(userId, payload);
         return ApiResponse.success("Application created successfully", res);
     }
 
-    @Put("/profilestatus/:aidServiceProfileId")
+    @Put("/profile/status/:aidServiceProfileId")
     @UseGuards(JwtGuard)
     async updateAidServiceProfileApplicationStatus(
         @Body() payload: VerifyAidServiceProfileDTO,

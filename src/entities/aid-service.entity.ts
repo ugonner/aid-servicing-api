@@ -3,6 +3,7 @@ import {
   CreateDateColumn,
   Entity,
   ManyToMany,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
@@ -13,6 +14,7 @@ import { AidServiceProfile } from './aid-service-profile.entity';
 import { Tag } from './tag.entity';
 import { AidServiceTag } from './aid-service-tag.entity';
 import { Booking } from './booking.entity';
+import { AidServiceCluster } from './aid-service-cluster.entity';
 
 @Entity()
 export class AidService {
@@ -52,6 +54,12 @@ export class AidService {
   @OneToMany(() => Booking, (booking) => booking.aidService)
     bookings: Booking[];
   
+    @ManyToOne(() => Profile)
+    profile: Profile;
+
+    @OneToMany(() => AidServiceCluster, (aidServiceCluster) => aidServiceCluster.aidService)
+    aidServiceClusters: AidServiceCluster[];
+    
   @CreateDateColumn()
   createdAt: Date;
 

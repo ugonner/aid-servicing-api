@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { callPurpose, CallType, RoomType } from "../enums/call.enum";
 import { PlainRTCSocketMessageType } from "../enums/socket.enum";
-import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsBoolean, IsEnum, IsNumber, IsNumberString, IsOptional, IsString, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { QueryRequestDTO } from "./query-request.dto";
 
@@ -87,6 +87,18 @@ export class QueryCallRoomDTO extends QueryRequestDTO {
    @IsString()
    @IsOptional()
    userId?: string;
+
+   
+     
+   @ApiPropertyOptional()
+     @IsString()
+     @IsOptional()
+     aidServiceProfileId?: string;
+     
+   @ApiPropertyOptional()
+     @IsString()
+     @IsOptional()
+     aidServiceId?: string;
 
 }
 

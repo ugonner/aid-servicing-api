@@ -3,7 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { BookingService } from './booking.service';
 import { JwtGuard } from '../shared/guards/jwt.guards';
 import { User } from '../shared/guards/decorators/user.decorator';
-import { BookingDTO, QueryBookingDTO } from '../shared/dtos/booking.dto';
+import { BookingDTO, CreateBookingDTO, QueryBookingDTO, UpdateBookinDTO } from '../shared/dtos/booking.dto';
 import { ApiResponse } from '../shared/helpers/apiresponse';
 
 @ApiTags("booking")
@@ -17,14 +17,25 @@ export class BookingController {
     @Post()
     async createBooking(
         //@User("userId") userId: string,
-        @Body() payload: BookingDTO
+        @Body() payload: CreateBookingDTO
     ){
         const userId = "ugonna";
         const res = await this.bookingService.createBooking(payload, userId);
         return ApiResponse.success("Booking created successfully", res);
     }
     @UseGuards(JwtGuard)
-    @Put("confirm/:bookingId/provider")
+    @Put("/:bookingId")
+    async updateBooking(
+        @Body() payload: UpdateBookinDTO,
+        @User("userId") userId: string,
+        @Param("bookingId", new ParseIntPipe()) bookingId: number 
+    ){
+        const res = await this.bookingService.updateBooking(userId, bookingId, payload);
+        return ApiResponse.success("Booking confirmed successfully", res);
+    }
+
+    @UseGuards(JwtGuard)
+    @Put("/confirm/:bookingId/provider")
     async confirmBookingByProvider(
         @User("userId") userId: string,
         @Param("bookingId", new ParseIntPipe()) bookingId: number 
@@ -44,7 +55,7 @@ export class BookingController {
 
     @Post("profile/validate")
     async validateProfileForBooking(
-        @Body() payload: BookingDTO
+        @Body() payload: CreateBookingDTO
     ){
         const res = await this.bookingService.isServiceProfileEligibleForBooking(payload.aidServiceProfileId, payload)
     }

@@ -18,6 +18,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { BookingModule } from './booking/booking.module';
 import { ReviewModule } from './review/review.module';
 import { ReportModule } from './report/report.module';
+import { TransactionModule } from './transaction/transaction.module';
 
 @Module({
   imports: [
@@ -67,6 +68,8 @@ import { ReportModule } from './report/report.module';
     BookingModule,
     ReviewModule,
     ReportModule,
+    NotificationModule,
+    TransactionModule
   
 
   ],

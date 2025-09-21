@@ -4,8 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, DeleteQueryBuilder, QueryRunner, SelectQueryBuilder } from 'typeorm';
-import { BookingDTO, QueryBookingDTO } from '../shared/dtos/booking.dto';
+import {
+  DataSource,
+  DeleteQueryBuilder,
+  QueryRunner,
+  SelectQueryBuilder,
+} from 'typeorm';
+import { BookingDTO, CreateBookingDTO, QueryBookingDTO, UpdateBookinDTO } from '../shared/dtos/booking.dto';
 import { Booking } from '../entities/booking.entity';
 import { Profile } from '../entities/user.entity';
 import { AidService } from '../entities/aid-service.entity';
@@ -14,43 +19,58 @@ import { BookingStatus } from '../shared/enums/booking.enum';
 import { ProfileWallet } from '../entities/user-wallet.entity';
 import { IQueryResult } from '../shared/interfaces/api-response.interface';
 import { handleDateQuery } from '../shared/helpers/db';
+import { NotificationService } from '../notifiction/notification.service';
+import { NotificationDto } from '../notifiction/dtos/notification.dto';
+import {
+  NotificationContext,
+  NotificationEventType,
+} from '../notifiction/enums/notification.enum';
 
 @Injectable()
 export class BookingService {
-  constructor(@InjectDataSource() private dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private dataSource: DataSource,
+    private notificationService: NotificationService,
+  ) {}
 
-
-  async isServiceProfileEligibleForBooking(aidServiceProfileId: number, bookingDto: BookingDTO, queryRunner?: QueryRunner ): Promise<boolean> {
+  async isServiceProfileEligibleForBooking(
+    aidServiceProfileId: number,
+    bookingDto: CreateBookingDTO,
+    queryRunner?: QueryRunner,
+  ): Promise<boolean> {
     queryRunner = queryRunner || this.dataSource.createQueryRunner();
 
-    if(!aidServiceProfileId) throw new BadRequestException("aidServiceProfileId is required");
+    if (!aidServiceProfileId)
+      throw new BadRequestException('aidServiceProfileId is required');
     const aidServiceProfile = await queryRunner.manager.findOne(
-          AidServiceProfile,
-          {
-            where: { id: aidServiceProfileId },
-            relations: ['profile', 'aidService'],
-          },
-        );
+      AidServiceProfile,
+      {
+        where: { id: aidServiceProfileId },
+        relations: ['profile', 'aidService'],
+      },
+    );
 
-        const availableProfiles = await this.getBookingEligibleProfiles({
-          bookingStartDateTime: bookingDto.startDate,
-         bookingEndDateTime: new Date(new Date(bookingDto.startDate).getTime() + Number(bookingDto.duration)).toISOString(),
-          aidServiceId: bookingDto.aidServiceId,
-        });
-        if (aidServiceProfile.aidService?.id !== bookingDto.aidServiceId)
-          throw new BadRequestException(
-            'Selected provider does not offer the service',
-          );
-        if (
-          !availableProfiles.find(
-            (profile) => profile.userId === aidServiceProfile.profile?.userId,
-          )
-        )
-          throw new BadRequestException('Selected provider is not available');
-        return true;
+    const availableProfiles = await this.getBookingEligibleProfiles({
+      bookingStartDateTime: bookingDto.startDate,
+      bookingEndDateTime: new Date(
+        new Date(bookingDto.startDate).getTime() + Number(bookingDto.duration),
+      ).toISOString(),
+      aidServiceId: bookingDto.aidServiceId,
+    });
+    if (aidServiceProfile.aidService?.id !== bookingDto.aidServiceId)
+      throw new BadRequestException(
+        'Selected provider does not offer the service',
+      );
+    if (
+      !availableProfiles.find(
+        (profile) => profile.userId === aidServiceProfile.profile?.userId,
+      )
+    )
+      throw new BadRequestException('Selected provider is not available');
+    return true;
   }
 
-  async createBooking(dto: BookingDTO, userId: string): Promise<Booking> {
+  async createBooking(dto: CreateBookingDTO, userId: string): Promise<Booking> {
     let newBooking: Booking;
     let errorData: unknown;
     const queryRunner = this.dataSource.createQueryRunner();
@@ -67,11 +87,11 @@ export class BookingService {
 
       if (!aidService)
         throw new BadRequestException('Aid service does not exist');
-     
+
       const endDate = new Date(
         new Date(bookingDto.startDate).getTime() + Number(bookingDto.duration),
       ).toISOString();
-      
+
       const bookingInstance: Booking = queryRunner.manager.create(Booking, {
         ...bookingDto,
         startDate: bookingDto.startDate,
@@ -81,9 +101,16 @@ export class BookingService {
       });
 
       bookingInstance.totalAmount = Math.ceil(
-        (Number(bookingDto.duration) * Number(aidService.onSiteRate)) / 1000,
+        (Number(bookingDto.duration) / 1000) *
+          (dto.isVirtualLocation
+            ? Number(aidService.videoCallRate)
+            : Number(aidService.onSiteRate)),
       );
-      bookingInstance.compositeBookingId = `${profile.userId}-${bookingDto.startDate}`;
+      bookingInstance.totalAmount =
+        (Number(process.env.VAT_RATE) / 100) *
+          Number(bookingInstance.totalAmount) +
+        Number(bookingInstance.totalAmount);
+      bookingInstance.compositeBookingId = `${profile.userId}-${new Date(bookingDto.startDate).getTime()}`;
 
       if (aidServiceProfileId) {
         const aidServiceProfile = await queryRunner.manager.findOne(
@@ -119,6 +146,25 @@ export class BookingService {
       );
       await queryRunner.commitTransaction();
       newBooking = savedBooking;
+
+      const notificationDto: NotificationDto = {
+        creator: profile,
+        receivers: [profile],
+        notificationEventType: NotificationEventType.AID_SERVICE_BOOKING_CREATION,
+        context: NotificationContext.SERVICE_BOOKING,
+        contextEntityId: savedBooking.id,
+        title: NotificationEventType.AID_SERVICE_BOOKING_CREATION,
+        description: 'A Booking has been created for a service with detail',
+        avatar: profile.avatar || aidService?.avatar,
+        data: {
+          "link": `${process.env.APP_URL}/booking/invoice?bi=${savedBooking.id}`,
+          'Composte Booking No': savedBooking.compositeBookingId,
+        },
+      };
+      this.notificationService.sendNotification(notificationDto, {
+        sendEmail: true,
+        notifyAdmin: true,
+      });
     } catch (error) {
       errorData = error;
       await queryRunner.rollbackTransaction();
@@ -139,6 +185,9 @@ export class BookingService {
     const queryRunner = this.dataSource.createQueryRunner();
     try {
       await queryRunner.startTransaction();
+     const profile = await queryRunner.manager.findOneBy(Profile, {userId});
+     if(!profile) throw new NotFoundException("User profile not found");
+
       const booking = await queryRunner.manager.findOne(Booking, {
         where: { id: bookingId },
         relations: [
@@ -195,6 +244,22 @@ export class BookingService {
       const savedBooking = await queryRunner.manager.save(Booking, booking);
       await queryRunner.commitTransaction();
       updatedBooking = savedBooking;
+
+      const notDto: NotificationDto = {
+        creator: profile,
+        receivers: userType.isProvider ? [booking?.profile] : [booking.aidServiceProfile?.profile],
+        context: NotificationContext.SERVICE_BOOKING,
+        contextEntityId: bookingId,
+        notificationEventType: NotificationEventType.AID_SERVICE_BOOKING_UPDATE,
+        title: NotificationEventType.AID_SERVICE_BOOKING_UPDATE,
+        description: `Booking Service has been confirmed as delivered by ${userType.isProvider ? "Provider" : "Client"}`,
+        data: {
+          link: `${process.env.APP_URL}/booking/invoice?bi=${savedBooking.id}`,
+          'Composte Booking No': savedBooking.compositeBookingId,
+        },
+
+      }
+      this.notificationService.sendNotification(notDto, {sendEmail: true, notifyAdmin: false})
     } catch (error) {
       errorData = error;
       await queryRunner.rollbackTransaction();
@@ -207,9 +272,14 @@ export class BookingService {
 
   async getBooking(bookingId: number): Promise<Booking> {
     return this.dataSource.getRepository(Booking).findOne({
-      where: {id: bookingId},
-      relations: ["profile", "aidService", "aidServiceProfile", "aidServiceProfile.profile" ]
-    })
+      where: { id: bookingId },
+      relations: [
+        'profile',
+        'aidService',
+        'aidServiceProfile',
+        'aidServiceProfile.profile',
+      ],
+    });
   }
   async getBookingEligibleProfiles(dto: {
     aidServiceId: number;
@@ -217,10 +287,14 @@ export class BookingService {
     bookingEndDateTime: string;
   }): Promise<Profile[]> {
     const { bookingStartDateTime, aidServiceId, bookingEndDateTime } = dto;
-    
-    const oneHourAfterEndTime = new Date((new Date(bookingEndDateTime).getTime()) + (1* 60 * 60 * 1000)).toISOString();
-    const oneHourBeforeStartTime = new Date((new Date(bookingStartDateTime).getTime()) - (1* 60 * 60 * 1000)).toISOString();
-   
+
+    const oneHourAfterEndTime = new Date(
+      new Date(bookingEndDateTime).getTime() + 1 * 60 * 60 * 1000,
+    ).toISOString();
+    const oneHourBeforeStartTime = new Date(
+      new Date(bookingStartDateTime).getTime() - 1 * 60 * 60 * 1000,
+    ).toISOString();
+
     const queryBuilder = this.dataSource
       .getRepository(Profile)
       .createQueryBuilder('profile');
@@ -233,7 +307,7 @@ export class BookingService {
         aidServiceId,
       })
       .andWhere(
-       "((bookings.startDate) >= :oneHourAfterEndTime) || ((bookings.endDate) <= :oneHourBeforeStartTime) ",
+        '((bookings.startDate) >= :oneHourAfterEndTime) || ((bookings.endDate) <= :oneHourBeforeStartTime) ',
         {
           oneHourAfterEndTime,
           oneHourBeforeStartTime,
@@ -243,16 +317,29 @@ export class BookingService {
     return await queryBuilder.getMany();
   }
 
-  async matchBookingWithServiceProfile(bookingData: Booking | number): Promise<Booking> {
+  async matchBookingWithServiceProfile(
+    bookingData: Booking | number,
+    config: { forceMatching: boolean },
+  ): Promise<Booking> {
     let updatedBooking: Booking;
     let errorData: unknown;
     const queryRunner = this.dataSource.createQueryRunner();
     try {
-        await queryRunner.startTransaction();
-        const booking = typeof(bookingData) !== "object" ? await queryRunner.manager.findOne(Booking, {
-            where: {id: bookingData},
-            relations: ["profile", "aidService", "aidServiceProfile"]
-        }) : (bookingData as Booking);
+      await queryRunner.startTransaction();
+      const booking =
+        typeof bookingData !== 'object'
+          ? await queryRunner.manager.findOne(Booking, {
+              where: { id: bookingData },
+              relations: ['profile', 'aidService', 'aidServiceProfile'],
+            })
+          : (bookingData as Booking);
+
+      if (!booking) throw new NotFoundException('booking not found');
+      if (!config.forceMatching && booking.aidServiceProfile)
+        throw new BadRequestException(
+          'booking already matched with a provider',
+        );
+
       const eligibleProfiles = await this.getBookingEligibleProfiles({
         bookingStartDateTime: booking.startDate,
         bookingEndDateTime: booking.endDate,
@@ -283,12 +370,83 @@ export class BookingService {
       });
       await queryRunner.commitTransaction();
       updatedBooking = savedBooking;
+
+      const notDto: NotificationDto = {
+        creator: booking.profile,
+        receivers: [booking.profile, booking.aidServiceProfile?.profile],
+        context: NotificationContext.SERVICE_BOOKING,
+        contextEntityId: savedBooking.id,
+        notificationEventType: NotificationEventType.AID_SERVICE_BOOKING_PROVIDER_MATCH,
+        title: NotificationEventType.AID_SERVICE_BOOKING_PROVIDER_MATCH,
+        description: "The booking has been matched with a provider",
+        avatar: savedBooking.aidServiceProfile?.mediaFile || booking.aidService?.avatar,
+        data: {
+          link: `${process.env.APP_URL}/booking/invoice?bi=${savedBooking.id}`,
+          'Composte Booking No': savedBooking.compositeBookingId,
+        },
+
+      }
+      this.notificationService.sendNotification(notDto, {
+        notifyAdmin: true,
+        sendEmail: true
+      });
+
     } catch (error) {
       errorData = error;
       await queryRunner.rollbackTransaction();
     } finally {
       await queryRunner.release();
       if (errorData) throw errorData;
+      return updatedBooking;
+    }
+  }
+
+  async updateBooking(userId: string, bookingId: number, dto: UpdateBookinDTO): Promise<Booking> {
+    let updatedBooking: Booking;
+    let errorData: unknown;
+    const queryRunner = this.dataSource.createQueryRunner();
+    try{
+      await queryRunner.startTransaction();
+
+      const profile = await queryRunner.manager.findOneBy(Profile, {userId});
+      if(!profile) throw new NotFoundException("User profile not foud");
+      const booking = await queryRunner.manager.findOne(Booking, {
+        where: {id: bookingId},
+        relations: ["profile", "aidService", "aidServiceProfile", "aidServiceProfile.profile"]
+      });
+      if(!booking) throw new NotFoundException("booking not found");
+      
+      if(booking.bookingStatus !== BookingStatus.PENDING) throw new BadRequestException("You can no longor update booking");
+      const savedBooking = await queryRunner.manager.save(Booking, {
+        ...booking, ...dto as BookingDTO
+      })
+      await queryRunner.commitTransaction();
+      updatedBooking = savedBooking;
+
+      const notDto: NotificationDto = {
+        creator: profile,
+        receivers: [profile, booking.aidServiceProfile?.profile],
+        context: NotificationContext.SERVICE_BOOKING,
+        contextEntityId: savedBooking.id,
+        notificationEventType: NotificationEventType.AID_SERVICE_BOOKING_UPDATE,
+        title: NotificationEventType.AID_SERVICE_BOOKING_UPDATE,
+        description: dto.bookingStatus ? `Booking status has been updated to ${dto.bookingStatus} by ${profile.firstName}` : `Booking information has been updated by ${profile.firstName}, please re-check booking`,
+        avatar: profile.avatar,
+        data: {
+          link: `${process.env.APP_URL}/booking/invoice?bi=${savedBooking.id}`,
+          'Composte Booking No': savedBooking.compositeBookingId,
+        },
+      }
+      this.notificationService.sendNotification(notDto, {
+        notifyAdmin: false,
+         sendEmail: true
+      })
+    }catch(error){
+      errorData = error;
+      await queryRunner.rollbackTransaction();
+    }finally{
+      await queryRunner.release();
+      if(errorData) throw errorData;
       return updatedBooking;
     }
   }
@@ -321,15 +479,20 @@ export class BookingService {
   }
 
   getQueryBuilder(): SelectQueryBuilder<Booking> {
-    return this.dataSource.getRepository(Booking).createQueryBuilder("booking")
-    .leftJoin("booking.profile", "profile")
-    .leftJoin("booking.aidService", "aidService")
-    .leftJoin("booking.aidServiceProfile", "aidServiceProfile")
-    .leftJoin("aidServiceProfile.profile", "aidServiceProfileProfile")
+    return this.dataSource
+      .getRepository(Booking)
+      .createQueryBuilder('booking')
+      .leftJoinAndSelect('booking.profile', 'profile')
+      .leftJoinAndSelect('booking.aidService', 'aidService')
+      .leftJoin('booking.aidServiceProfile', 'aidServiceProfile')
+      .leftJoin('aidServiceProfile.profile', 'aidServiceProfileProfile');
   }
 
   async getBookings(dto: QueryBookingDTO): Promise<IQueryResult<Booking>> {
     const {
+      userId,
+      aidServiceProfileId,
+      aidServiceId,
       searchTerm,
       startDate,
       endDate,
@@ -342,10 +505,10 @@ export class BookingService {
     const queryPage = page ? Number(page) : 1;
     const queryLimit = limit ? Number(limit) : 10;
     const queryOrder = order ? order.toUpperCase() : 'DESC';
-    const queryOrderBy =  "createdAt";
+    const queryOrderBy = 'createdAt';
 
     let queryBuilder = this.getQueryBuilder();
-    queryBuilder.where("booking.isDeleted != :isDeleted", {isDeleted: true});
+    queryBuilder.where('booking.isDeleted != :isDeleted', { isDeleted: true });
 
     if (queryFields) {
       Object.keys(queryFields).forEach((field) => {
@@ -363,7 +526,16 @@ export class BookingService {
       );
     }
 
-
+    if(aidServiceId){
+      queryBuilder.andWhere(`aidService.id = :aidServiceId`, {aidServiceId})
+    }
+    if(aidServiceProfileId){
+      queryBuilder.andWhere(`aidServiceProfile.id = :aidServiceProfileId`, {aidServiceProfileId})
+    }
+    if(userId){
+      queryBuilder.andWhere("profile.userId = :userId || aidServiceProfileProfile.userId = :userId",  {userId})
+    }
+    
 
     if (searchTerm) {
       const searchFields = ['name', 'description'];
@@ -371,10 +543,10 @@ export class BookingService {
       searchFields.forEach((field) => {
         queryStr += ` OR LOWER(booking.${field}) LIKE :searchTerm`;
       });
-      ["email", "userId","firstName", "lastName"].forEach((field) => {
+      ['email', 'userId', 'firstName', 'lastName'].forEach((field) => {
         queryStr += ` OR LOWER(profile.${field}) LIKE :searchTerm`;
       });
-      ["email", "userId", "firstName", "lastName"].forEach((field) => {
+      ['email', 'userId', 'firstName', 'lastName'].forEach((field) => {
         queryStr += ` OR LOWER(aidServiceProfileProfile.${field}) LIKE :searchTerm`;
       });
       queryBuilder.andWhere(queryStr, {
@@ -382,7 +554,6 @@ export class BookingService {
       });
     }
 
-    
     const [data, total] = await queryBuilder
       .orderBy(`booking.${queryOrderBy}`, queryOrder as 'ASC' | 'DESC')
       .skip((queryPage - 1) * queryLimit)
@@ -391,5 +562,4 @@ export class BookingService {
 
     return { page: queryPage, limit: queryLimit, total, data };
   }
-
 }

@@ -126,19 +126,18 @@ export class CallService {
 
   getQueryBuilder(): SelectQueryBuilder<CallRoom> {
     const repository = this.dataSource.manager.getRepository(CallRoom);
-    return repository.createQueryBuilder('callRooms')
-    .leftJoin("callRooms.initiatedBy", "initiatedBy")
-    .leftJoin("AidServiceProfile", "AidServiceProfile", "AidServiceProfile.callRoomId = callRooms.id")
-    .leftJoin("AidServiceProfile.aidService", "AidServic")
-    .leftJoin("CallMemersProfile", "CallMemersProfile", "CallMemersProfile.callRoomId = callRooms.id")
-    .leftJoin("CallMemersProfile.profile", "CallMemersProfiles", "CallMemersProfile.profileId = profile.id")
+    return repository.createQueryBuilder('callRoom')
+    .leftJoinAndSelect("callRoom.initiatedBy", "initiatedBy")
+    .leftJoinAndSelect("callRoom.aidServiceProfile", "aidServiceProfile")
+    .leftJoinAndSelect("aidServiceProfile.aidService", "aidService")
+    .leftJoinAndSelect("callRoom.callMembers", "callMembers")
   }
 
   async getCallRooms(
     dto: QueryCallRoomDTO,
     userid?: string,
   ): Promise<IQueryResult<CallRoom>> {
-    const { searchTerm, order, page, limit, ...queryFields } = dto;
+    const {userId, aidServiceProfileId, aidServiceId, searchTerm, order, page, limit, ...queryFields } = dto;
     const queryPage = page ? Number(page) : 1;
     const queryLimit = limit ? Number(limit) : 10;
     const queryOrder = order ? order.toUpperCase() : 'DESC';
@@ -148,15 +147,22 @@ export class CallService {
 
     if (queryFields) {
       Object.keys(queryFields).forEach((field) => {
-        queryBuilder.andWhere(`callRooms.${field} = :value`, {
+        queryBuilder.andWhere(`callRoom.${field} = :value`, {
           value: queryFields[field],
         });
       });
     }
 
-    if (userid) {
-        queryBuilder.andWhere(`callMembersProfiles.userId = :userId`, { userid });
-        queryBuilder.orWhere("initiatedBy.userId = :userId", {userid})
+
+    if (userId) {
+        queryBuilder.andWhere(`callMembers.userId = :userId || initiatedBy.userId = :userId`, { userId });
+    }
+
+    if(aidServiceProfileId) {
+      queryBuilder.andWhere(`aidServiceProfile.id = :aidServiceProfileId`, {aidServiceProfileId})
+    }
+    if(aidServiceId) {
+      queryBuilder.andWhere(`aidService.id = :aidServiceId`, {aidServiceId})
     }
 
     if (searchTerm) {
@@ -171,7 +177,7 @@ export class CallService {
     }
 
     const [data, total] = await queryBuilder
-      .orderBy(`callRooms.${queryOrderBy}`, queryOrder as 'ASC' | 'DESC')
+      .orderBy(`callRoom.${queryOrderBy}`, queryOrder as 'ASC' | 'DESC')
       .skip((queryPage - 1) * queryLimit)
       .limit(queryLimit)
       .getManyAndCount();

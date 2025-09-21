@@ -10,12 +10,16 @@ import { Booking } from '../entities/booking.entity';
 import { CallRoom } from '../entities/call.entity';
 import { IQueryResult } from '../shared/interfaces/api-response.interface';
 import { handleDateQuery } from '../shared/helpers/db';
+import { NotificationService } from '../notifiction/notification.service';
+import { NotificationDto } from '../notifiction/dtos/notification.dto';
+import { NotificationContext, NotificationEventType } from '../notifiction/enums/notification.enum';
 
 @Injectable()
 export class ReviewService {
     constructor(
         @InjectDataSource()
-        private dataSource: DataSource
+        private dataSource: DataSource,
+        private notificationService: NotificationService
     ){}
 
     async createRating(dto: ReviewAndRatingDTO, userId: string): Promise<ReviewAndRating> {
@@ -24,6 +28,7 @@ export class ReviewService {
         const queryRunner = this.dataSource.createQueryRunner();
         try{
             await queryRunner.startTransaction();
+            
             const profile = await queryRunner.manager.findOneBy(Profile, {userId});
             
             if(!profile) throw new BadRequestException("User profile not found");
@@ -35,7 +40,8 @@ export class ReviewService {
                     relations: ["aidServiceProfile", "aidServiceProfile.profile"]
                 });
                 if(!booking) throw new NotFoundException("boooking not found");
-
+                if(!booking.aidServiceProfile) throw new BadRequestException("booking has not been matched with a provider yet");
+                if(booking.aidServiceProfile.profile?.userId === userId) throw new BadRequestException("This service is provided by you, You can not review your own service")
                 aidServiceProfile = booking.aidServiceProfile;
                 entityOwner = booking.aidServiceProfile.profile;
                 booking.rating = dto.rating;
@@ -65,6 +71,23 @@ export class ReviewService {
             const savedReview = await queryRunner.manager.save(ReviewAndRating, reviewData);
             await queryRunner.commitTransaction();
             newReview = savedReview;
+
+            const notDto: NotificationDto = {
+              creator: profile,
+              receivers: [entityOwner, profile],
+              context: NotificationContext.REVIEW_RATING,
+              contextEntityId: savedReview.id,
+              notificationEventType: NotificationEventType.REVIEW_AND_RATING_MADE,
+              title: NotificationEventType.REVIEW_AND_RATING_MADE,
+              description: "Review recorded",
+              data: {
+                link: `${process.env.APP_URL}/review/single?rid=${savedReview.id}`
+              }
+            }
+            this.notificationService.sendNotification(notDto, {
+              notifyAdmin: false,
+              sendEmail: true
+            });
         }catch(error){
             errorData = error;
             await queryRunner.rollbackTransaction();
