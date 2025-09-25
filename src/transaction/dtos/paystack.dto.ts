@@ -34,6 +34,7 @@ import { PaystackCurrency } from '../enums/paystack.enum';
     reference: string;
   }
   
+
   export class PaystackVerifyPaymentResponseDto {
     amount: number;
     currency: string;
@@ -46,6 +47,10 @@ import { PaystackCurrency } from '../enums/paystack.enum';
     metadata: VerifyPaymentDTO;
   }
   
+  export class PaystackVerifyPaymentAPIResponse {
+    status: boolean;
+    data: PaystackVerifyPaymentResponseDto;
+  }
   
   export class PaystackWebHookPayload {
     event: string;

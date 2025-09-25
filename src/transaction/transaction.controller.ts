@@ -1,22 +1,26 @@
-import { Body, Controller, Get, Header, Headers, HttpException, HttpStatus, Param, Post, Put, Query, RawBody, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, HttpException, HttpStatus, Inject, Param, Post, Put, Query, RawBody, UseGuards } from '@nestjs/common';
 import { TransactionService } from './transaction.service';
 import { PaymentDTO, VerifyPaymentDTO } from './dtos/payment.dto';
 import { User } from '../shared/guards/decorators/user.decorator';
 import { ApiResponse } from '../shared/helpers/apiresponse';
 import { JwtGuard } from '../shared/guards/jwt.guards';
-import { PaystackService } from './wallet/paystack.service';
+import { PaystackService } from './paystack.service';
 import { PaymentMethod, PaymentStatus } from './enums/payment.enum';
 import { InitiatePaymentDto, PaystackInitiatePaymentResponseDto, PaystackWebHookPayload } from './dtos/paystack.dto';
 import { PaystackCurrency } from './enums/paystack.enum';
 import { BinaryLike } from 'crypto';
-import { WalletService } from './wallet/wallet.service';
+import { WalletService } from './wallet.service';
+import { CallGateway } from '../call/call.gateway';
+import { BroadcastEvents } from '../shared/enums/events.enum';
 
 @Controller('transaction')
 export class TransactionController {
     constructor(
         private transactionService: TransactionService,
         private paystackService: PaystackService,
-        private walletService: WalletService
+        private walletService: WalletService,
+        
+        private eventGateWay: CallGateway
     ){}
 
     @Post()
@@ -54,14 +58,22 @@ export class TransactionController {
     }
 
     @Get("verify-payment/:provider")
-   // @UseGuards(JwtGuard)
-    async verifyPaymentStatus(
+   async verifyPaymentStatus(
         @Query("reference") reference: string,
         @Param("provider") provider: string,
     ){
+      const res = await this.paystackService.verifyPayment(reference);
+        const metadata: VerifyPaymentDTO = {
+                transactionId: res.data.metadata.transactionId,
+                paymentStatus: /success/i.test(res.data.status) ? PaymentStatus.PAID : res.data.status as PaymentStatus
+            };
+           const transaction = await this.transactionService.updatePayment(metadata);
+            transaction.paymentStatus = metadata.paymentStatus;
+            
+            const connectedUser = this.eventGateWay.getUser(transaction.profile.userId);
+         if(connectedUser) this.eventGateWay.getServer()?.to((await connectedUser)?.socketId)?.emit(BroadcastEvents.PAYMENT_COMPLETION, transaction)
         
-        const res = await this.paystackService.verifyPayment(reference);
-        return ApiResponse.success("Transction updated successfully", res);
+        return ApiResponse.success("Transction updated successfully", transaction);
     }
 
     

@@ -1,13 +1,13 @@
 import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { AidServiceTag } from "./aid-service-tag.entity";
 import { BookingStatus } from "../shared/enums/booking.enum";
-import { PaymentStatus } from "../shared/enums/payment.enum";
 import { ILocationAddressDTO } from "../shared/dtos/aid-service.dto";
 import { Profile } from "./user.entity";
 import { AidService } from "./aid-service.entity";
 import { AidServiceProfile } from "./aid-service-profile.entity";
 import { VirtualLocationAddressDTO } from "../shared/dtos/booking.dto";
 import { PaymentTransaction } from "./transaction.entity";
+import { PaymentStatus } from "../transaction/enums/payment.enum";
 
 @Entity()
 export class Booking {

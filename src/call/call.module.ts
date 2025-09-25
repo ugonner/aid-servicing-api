@@ -25,9 +25,11 @@ import { CallController } from './call.controller';
       provide: "CALL_GATEWWAY",
       useClass: CallGateway
     },
+    CallGateway,
     RoomService,
     PeerGateway,
     CallService
-  ]
+  ],
+  exports: [CallGateway]
 })
 export class CallModule {}

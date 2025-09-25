@@ -301,13 +301,13 @@ export class BookingService {
     queryBuilder
       .innerJoinAndSelect('profile.aidServiceProfiles', 'aidServiceProfiles')
       .innerJoinAndSelect('aidServiceProfiles.aidService', 'aidService')
-      .innerJoin('aidServiceProfiles.bookings', 'bookings')
+      .leftJoin('aidServiceProfiles.bookings', 'bookings')
       .where('profile.isDeleted = false')
       .andWhere('aidServiceProfiles.aidServiceId = :aidServiceId', {
         aidServiceId,
       })
       .andWhere(
-        '((bookings.startDate) >= :oneHourAfterEndTime) || ((bookings.endDate) <= :oneHourBeforeStartTime) ',
+        '((bookings.startDate) >= :oneHourAfterEndTime) || ((bookings.endDate) <= :oneHourBeforeStartTime) || bookings.id IS NULL',
         {
           oneHourAfterEndTime,
           oneHourBeforeStartTime,
@@ -315,6 +315,7 @@ export class BookingService {
       );
 
     return await queryBuilder.getMany();
+    
   }
 
   async matchBookingWithServiceProfile(

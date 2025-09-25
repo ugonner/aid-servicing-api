@@ -31,11 +31,11 @@ export class BookingController {
         @Param("bookingId", new ParseIntPipe()) bookingId: number 
     ){
         const res = await this.bookingService.updateBooking(userId, bookingId, payload);
-        return ApiResponse.success("Booking confirmed successfully", res);
+        return ApiResponse.success("Booking updated successfully", res);
     }
 
     @UseGuards(JwtGuard)
-    @Put("/confirm/:bookingId/provider")
+    @Put("/:bookingId/provider/confirm")
     async confirmBookingByProvider(
         @User("userId") userId: string,
         @Param("bookingId", new ParseIntPipe()) bookingId: number 
@@ -44,7 +44,7 @@ export class BookingController {
         return ApiResponse.success("Booking confirmed successfully", res);
     }
     @UseGuards(JwtGuard)
-    @Put("confirm/:bookingId/user")
+    @Put("/:bookingId/user/confirm")
     async confirmBookingByUser(
         @User("userId") userId: string,
         @Param("bookingId", new ParseIntPipe()) bookingId: number 

@@ -13,6 +13,7 @@ export enum BroadcastEvents {
     LEAVE_ROOM = "Leave_room",
     UPDATE_CONNECTED_USERS_RECORD = "Updat_connected_users_record",
     
-    PLAIN_RTC_CALL_MESSAGE = "Plain_rtc_call_message"
+    PLAIN_RTC_CALL_MESSAGE = "Plain_rtc_call_message",
+    PAYMENT_COMPLETION = "Payment_completion"
 }
 

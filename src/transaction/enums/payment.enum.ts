@@ -6,7 +6,8 @@ export enum PaymentStatus {
     PAID = "Paid",
     PENDING = "Pending",
     REFUND = "Refund",
-    CANCELLED = "Cancelled"
+    CANCELLED = "Cancelled",
+    NOT_PAID = "Not Paid"
 }
 
 export enum PaymentPurpose {

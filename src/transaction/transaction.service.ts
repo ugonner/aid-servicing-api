@@ -17,6 +17,7 @@ import { PaymentPurpose, PaymentStatus } from './enums/payment.enum';
 import { Profile } from '../entities/user.entity';
 import { ProfileWallet } from '../entities/user-wallet.entity';
 import { BookingService } from '../booking/booking.service';
+import { TraceNotification } from 'mediasoup/node/lib/fbs/consumer';
 @Injectable()
 export class TransactionService {
   constructor(@InjectDataSource() private dataSource: DataSource, 
@@ -59,21 +60,24 @@ export class TransactionService {
           ],
         });
         if (!booking) throw new NotFoundException('Booking not found');
-        if (booking.bookingStatus === BookingStatus.IN_PROGRESS)
+        if (booking.paymentStatus === PaymentStatus.PAID)
           throw new BadRequestException(
-            'This booking has already been paid for',
+            'This booking is already in progress state and has already been paid for',
           );
 
-        const trxExists = await queryRunner.manager.findOneBy(
+        const trxExists = await queryRunner.manager.findOne(
           PaymentTransaction,
           {
-            booking: { id: booking.id },
+            where: {booking: { id: booking.id }},
+            relations: ["profile"]
           },
         );
-
-        if (trxExists)
-          throw new BadRequestException('transaction already exists');
-
+        if (trxExists) {
+          if(trxExists.paymentStatus === PaymentStatus.PAID) throw new BadRequestException("Transaction already paid for");
+          transaction = trxExists;
+          return
+        }
+          
         trxData.amount = Number(booking.totalAmount);
         trxData.booking = booking;
       }
@@ -103,9 +107,10 @@ export class TransactionService {
       await queryRunner.startTransaction();
       const trx = await queryRunner.manager.findOne(PaymentTransaction, {
         where: { id: dto.transactionId },
-        relations: ["profile", 'booking'],
+        relations: ["profile", 'booking', "booking.aidService"],
       });
       if (!trx) throw new NotFoundException('Transaction record not found');
+      if(trx.paymentStatus === dto.paymentStatus) throw new BadRequestException("Transaction already updated");
       if (trx.paymentPurpose === PaymentPurpose.SERVICE_PAYMENT) {
         const booking = trx.booking;
         if (!booking) throw new NotFoundException('Booking not found');
@@ -128,6 +133,7 @@ export class TransactionService {
           dto.paymentStatus === PaymentStatus.PAID
             ? BookingStatus.IN_PROGRESS
             : BookingStatus.CANCELLED;
+        booking.paymentStatus = dto.paymentStatus;
         await queryRunner.manager.save(Booking, booking);
       }
       else if (trx.paymentPurpose === PaymentPurpose.FUND_DEPOSIT) {

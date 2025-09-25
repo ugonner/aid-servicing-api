@@ -7,9 +7,9 @@ import axios, { AxiosInstance } from 'axios';
 
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from "crypto";
-import { TransactionService } from '../transaction.service';
-import { InitiatePaymentDto, PaystackInitiatePaymentResponseDto } from '../dtos/paystack.dto';
-import { VerifyPaymentDTO } from '../dtos/payment.dto';
+import { TransactionService } from './transaction.service';
+import { InitiatePaymentDto, PaystackInitiatePaymentResponseDto, PaystackVerifyPaymentAPIResponse } from './dtos/paystack.dto';
+import { VerifyPaymentDTO } from './dtos/payment.dto';
 
 @Injectable()
 export class PaystackService {
@@ -37,7 +37,7 @@ export class PaystackService {
     bookingId: number
   ): Promise<PaystackInitiatePaymentResponseDto> {
     try {
-      let callback_page = `/order/verify-payment/${bookingId}`;
+      let callback_page = `/transaction/verify-payment/paystack`;
       
       const body = {
         ...payload,
@@ -46,6 +46,7 @@ export class PaystackService {
         reference: payload.paymentRef,
         metadata,
       };
+     
       const response = await this.axiosInstance.post(
         '/transaction/initialize',
         body,
@@ -61,7 +62,7 @@ export class PaystackService {
   }
 
   // Verify Payment
-  async verifyPayment(reference: string): Promise<any> {
+  async verifyPayment(reference: string): Promise<PaystackVerifyPaymentAPIResponse> {
     try {
       const response = await this.axiosInstance.get(
         `/transaction/verify/${reference}`,
