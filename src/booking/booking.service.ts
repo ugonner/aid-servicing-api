@@ -540,9 +540,9 @@ export class BookingService {
 
     if (searchTerm) {
       const searchFields = ['name', 'description'];
-      let queryStr = `LOWER(booking.name) LIKE :searchTerm`;
+      let queryStr = `LOWER(aidService.name) LIKE :searchTerm`;
       searchFields.forEach((field) => {
-        queryStr += ` OR LOWER(booking.${field}) LIKE :searchTerm`;
+        queryStr += ` OR LOWER(aidService.${field}) LIKE :searchTerm`;
       });
       ['email', 'userId', 'firstName', 'lastName'].forEach((field) => {
         queryStr += ` OR LOWER(profile.${field}) LIKE :searchTerm`;

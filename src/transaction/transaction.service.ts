@@ -4,13 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, QueryRunner, Transaction } from 'typeorm';
+import { DataSource, QueryRunner, SelectQueryBuilder, Transaction } from 'typeorm';
 import { PaymentTransaction } from '../entities/transaction.entity';
 
 import * as crypto from 'crypto';
 
 import { v4 as uuidv4 } from 'uuid';
-import { PaymentDTO, VerifyPaymentDTO } from './dtos/payment.dto';
+import { PaymentDTO, QueryPaymentTransactionDTO, VerifyPaymentDTO } from './dtos/payment.dto';
 import { Booking } from '../entities/booking.entity';
 import { BookingStatus } from '../shared/enums/booking.enum';
 import { PaymentPurpose, PaymentStatus } from './enums/payment.enum';
@@ -18,6 +18,8 @@ import { Profile } from '../entities/user.entity';
 import { ProfileWallet } from '../entities/user-wallet.entity';
 import { BookingService } from '../booking/booking.service';
 import { TraceNotification } from 'mediasoup/node/lib/fbs/consumer';
+import { handleDateQuery } from '../shared/helpers/db';
+import { IQueryResult } from '../shared/interfaces/api-response.interface';
 @Injectable()
 export class TransactionService {
   constructor(@InjectDataSource() private dataSource: DataSource, 
@@ -174,4 +176,75 @@ export class TransactionService {
         relations: ['booking'],
       });
   }
+
+   getQueryBuilder(): SelectQueryBuilder<PaymentTransaction> {
+      return this.dataSource
+        .getRepository(PaymentTransaction)
+        .createQueryBuilder('paymentTransaction')
+        .leftJoinAndSelect('paymentTransaction.profile', 'profile')
+        .leftJoinAndSelect("paymentTransaction.booking", "booking")
+    }
+  
+    async getTransactions(dto: QueryPaymentTransactionDTO): Promise<IQueryResult<PaymentTransaction>> {
+      const {
+        userId,
+        searchTerm,
+        startDate,
+        endDate,
+        dDate,
+        order,
+        page,
+        limit,
+        ...queryFields
+      } = dto;
+      const queryPage = page ? Number(page) : 1;
+      const queryLimit = limit ? Number(limit) : 10;
+      const queryOrder = order ? order.toUpperCase() : 'DESC';
+      const queryOrderBy = 'createdAt';
+  
+      let queryBuilder = this.getQueryBuilder();
+      queryBuilder.where('booking.isDeleted != :isDeleted', { isDeleted: true });
+  
+      if (queryFields) {
+        Object.keys(queryFields).forEach((field) => {
+          queryBuilder.andWhere(`booking.${field} = :value`, {
+            value: queryFields[field],
+          });
+        });
+      }
+  
+      if (startDate || endDate || dDate) {
+        queryBuilder = handleDateQuery<PaymentTransaction>(
+          { startDate, endDate, dDate, entityAlias: 'paymentTransaction' },
+          queryBuilder,
+          'createdAt',
+        );
+      }
+  
+      if(userId){
+        queryBuilder.andWhere("profile.userId = :userId",  {userId})
+      }
+      
+  
+      if (searchTerm) {
+        const searchFields = ['name', 'description'];
+        let queryStr = `paymentTransaction.createdAt LIKE :searchTerm`;
+        
+        ['email', 'userId', 'firstName', 'lastName'].forEach((field) => {
+          queryStr += ` OR LOWER(profile.${field}) LIKE :searchTerm`;
+        });
+        queryBuilder.andWhere(queryStr, {
+          searchTerm: `%${searchTerm.toLowerCase().trim()}%`,
+        });
+      }
+  
+      const [data, total] = await queryBuilder
+        .orderBy(`paymentTransaction.${queryOrderBy}`, queryOrder as 'ASC' | 'DESC')
+        .skip((queryPage - 1) * queryLimit)
+        .limit(queryLimit)
+        .getManyAndCount();
+  
+      return { page: queryPage, limit: queryLimit, total, data };
+    }
+  
 }

@@ -33,7 +33,7 @@ export class MailjetService {
     try {
       const {to, subject, context, template} = dto;
       
-      const templatePath = path.join(__dirname,"..", '../templates', template || "general/general.hbs");
+      const templatePath = path.join(__dirname,"..", '../templates', template || "generals/general.hbs");
       if(context.entries){
         context.entriesData = Object.entries(context.entries)
       };

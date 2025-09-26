@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Header, Headers, HttpException, HttpStatus, Inject, Param, Post, Put, Query, RawBody, UseGuards } from '@nestjs/common';
 import { TransactionService } from './transaction.service';
-import { PaymentDTO, VerifyPaymentDTO } from './dtos/payment.dto';
+import { PaymentDTO, QueryPaymentTransactionDTO, VerifyPaymentDTO } from './dtos/payment.dto';
 import { User } from '../shared/guards/decorators/user.decorator';
 import { ApiResponse } from '../shared/helpers/apiresponse';
 import { JwtGuard } from '../shared/guards/jwt.guards';
@@ -115,6 +115,13 @@ export class TransactionController {
         return ApiResponse.success("Transction updated successfully", res);
     }
 
+    @Get()
+    async getTransactions(
+      @Query() payload: QueryPaymentTransactionDTO
+    ){
+      const res = await this.transactionService.getTransactions(payload);
+      return ApiResponse.success("Transations fetched successfullly", res)
+    }
 
     @UseGuards(JwtGuard)
     @Get("wallet")
