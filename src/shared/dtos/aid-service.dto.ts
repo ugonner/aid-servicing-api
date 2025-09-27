@@ -52,6 +52,11 @@ export class AidServiceDTO {
   @Type(() => TagDTO)
   @IsOptional()
   tags: TagDTO[];
+
+  @ApiPropertyOptional()
+  @IsNumber({}, {each: true})
+  @IsOptional()
+  clusterIds?: number[]
 }
 
 export class UpdateUserAidServiceDTO {
@@ -126,6 +131,11 @@ export class AidServiceProfileApplicationDTO {
   @ApiPropertyOptional()
   @IsString()
   @IsOptional()
+  name?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
   description?: string;
 
   @ApiPropertyOptional()
@@ -177,11 +187,24 @@ export class QueryAidServiceDTO extends QueryDateDTO {
   @IsString()
   @IsOptional()
   tags?: string;
+
+@ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  clusterIds?: string;
+
+
 }
 
 export class QueryAidServiceProfileDTO extends QueryDateDTO {
-  @ApiPropertyOptional()
-  @IsNumberString()
+  
+@ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  aidServiceProfileId?: string;
+  
+@ApiPropertyOptional()
+  @IsString()
   @IsOptional()
   aidServiceId?: string;
 
@@ -194,6 +217,12 @@ export class QueryAidServiceProfileDTO extends QueryDateDTO {
   @IsString()
   @IsOptional()
   userId?: string;
+
+  
+@ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  clusterIds?: string;
 }
 export interface ICallAidServiceProfileDTO {
   id: number;

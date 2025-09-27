@@ -15,3 +15,9 @@ export interface IConnectedUser {
   isAudioTurnedOff?: boolean;
   aidServiceProfiles?: ICallAidServiceProfileDTO[];
 }
+
+
+export interface IConnectedSocketUsersRecord {
+  totalUsers: number;
+  totalAidServiceProfiles: number;
+}

@@ -18,7 +18,7 @@ import { EventExceptionHandler } from '../shared/interceptors/exception.filter';
 import { ResponseInterceptor } from '../shared/interceptors/response.interceptor';
 import { BroadcastEvents } from '../shared/enums/events.enum';
 import { ApiResponse, IApiResponse } from '../shared/helpers/apiresponse';
-import { IConnectedUser } from '../shared/interfaces/user';
+import { IConnectedSocketUsersRecord, IConnectedUser } from '../shared/interfaces/user';
 import {
   IInitUserConnectionDTO,
   IPlainRTCSocketMessageDTO,
@@ -29,6 +29,7 @@ import { UserService } from '../user/user.service';
 import { PlainRTCSocketMessageType } from '../shared/enums/socket.enum';
 import { Broadcaster } from 'typeorm/subscriber/Broadcaster';
 import { AidServiceDTO } from '../shared/dtos/aid-service.dto';
+import { totalmem } from 'os';
 
 @UseFilters(EventExceptionHandler)
 @UseInterceptors(ResponseInterceptor)
@@ -67,17 +68,24 @@ export class CallGateway
 
   async handleConnection(client: Socket, ...args: any[]) {
     console.log('connected', client.id);
+  
   }
 
   async handleDisconnect(client: Socket) {
     this.deleteUser(client.id);
+    const usersRecord = await this.getConnectedUsersRecord();
+    const res = ApiResponse.success("users fetched successfully", usersRecord);
+    this.server.emit(BroadcastEvents.UPDATE_CONNECTED_USERS_RECORD, res);
   }
 
   @SubscribeMessage(BroadcastEvents.INIT_CONNECTED_USER)
   async initConnectedUser(client: Socket, payload: IInitUserConnectionDTO) {
     try {
       await this.insertUser(payload);
-      return payload;
+      const record = await this.getConnectedUsersRecord();
+       const res = ApiResponse.success("users fetched successfully", record);
+    this.server.emit(BroadcastEvents.UPDATE_CONNECTED_USERS_RECORD, res);
+     return payload;
     } catch (error) {
       console.log('Error init user', error.message);
       return payload;
@@ -201,7 +209,6 @@ export class CallGateway
   async getAidServiceUsers(client: Socket, payload: {aidServiceId: number}): Promise<IApiResponse<IConnectedUser[]>> {
     try{
       const users = this.connectedUsers.filter((usr) => usr.aidServiceProfiles.find((aidProfile) => aidProfile.aidService?.id === Number(payload.aidServiceId)))
-      console.log("users in aid", users);
       return ApiResponse.success("Aid service providers fetched successfully", users);
 
     }catch(error){
@@ -225,6 +232,7 @@ export class CallGateway
 
     user = { ...dto, aidServiceProfiles: userProfile?.aidServiceProfiles.map((aidProfile) => ({
       id: aidProfile.id,
+      name: aidProfile.name,
       aidService: {id: aidProfile.aidService?.id, name: aidProfile.aidService?.name} as AidServiceDTO,
       verificationStatus: aidProfile.verificationStatus,
       isDeleted: aidProfile.isDeleted
@@ -250,5 +258,12 @@ export class CallGateway
     this.connectedUsers = this.connectedUsers.filter(
       (user) => user.socketId !== socketOrPeerId,
     );
+  }
+
+  async getConnectedUsersRecord(): Promise<IConnectedSocketUsersRecord> {
+    return {
+      totalUsers: this.connectedUsers.length,
+      totalAidServiceProfiles: (this.connectedUsers?.filter((usr) => usr.aidServiceProfiles?.length > 0))?.length
+    }
   }
 }

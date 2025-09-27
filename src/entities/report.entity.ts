@@ -1,5 +1,6 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { ServiceType } from "../shared/enums/review";
+import { Profile } from "./user.entity";
 
 @Entity()
 export class Report {
@@ -26,6 +27,15 @@ export class Report {
 
     @Column({nullable: true})
     resolvedById: number;
+
+    @ManyToOne(() => Profile)
+    @JoinColumn({
+        name: "profile_id"
+    })
+    profile: Profile;
+
+    @ManyToOne(() => Profile)
+    entityOwner: Profile;
 
     @Column({nullable: true})
     comment?: string;

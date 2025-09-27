@@ -17,6 +17,7 @@ import { CallRoom } from './call.entity';
 import { AidServiceProfile } from './aid-service-profile.entity';
 import { ProfileWallet } from './user-wallet.entity';
 import { Booking } from './booking.entity';
+import { ProfileCluster } from './user-cluster.entity';
 
 @Entity()
 export class Profile {
@@ -69,6 +70,9 @@ export class Profile {
     })
     @JoinColumn()
     wallet: ProfileWallet;
+
+    @OneToMany(() => ProfileCluster, (profileCluster) => profileCluster.profile )
+    profileClusters: ProfileCluster[];
 
     @OneToMany(() => Booking, (booking) => booking.profile)
       bookings: Booking[];

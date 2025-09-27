@@ -5,10 +5,14 @@ import {
   HttpCode,
   HttpStatus,
   Ip,
+  Param,
+  ParseIntPipe,
   Post,
+  Put,
   Query,
   Req,
   UseFilters,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserProfileDTO } from '../shared/dtos/user.dto';
@@ -16,6 +20,8 @@ import { ApiResponse } from '../shared/helpers/apiresponse';
 import { AuthDTO, OtpAuthDTO, QueryAuthDTO } from '../shared/dtos/auth.dto';
 import { ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
 import { AllExceptionFilter } from '../shared/interceptors/all-exceptions.filter';
+import { JwtGuard } from '../shared/guards/jwt.guards';
+import { RoleDTO } from '../shared/dtos/role.dto';
 
 @ApiTags("Auth")
 @UseFilters(AllExceptionFilter)
@@ -103,6 +109,42 @@ export class AuthController {
     return ApiResponse.success('Successfully sent verification code', user);
   }
 
+  @Post('/request-otp')
+  @HttpCode(HttpStatus.OK)
+  async requestOtp(@Body() payload: OtpAuthDTO) {
+    const user = await this.authService.resendOtp(payload);
+    return ApiResponse.success('Successfully sent verification code', user);
+  }
+
+  @Post("role")
+  @UseGuards(JwtGuard)
+  async createRole(
+    @Body() payload: RoleDTO
+  ){
+    const res = await this.authService.createRole(payload);
+    return ApiResponse.success("Role created successfully", res);
+  }
+
+  @Put("role/:roleId")
+  @UseGuards(JwtGuard)
+  async updateRole(
+    @Body() payload: RoleDTO,
+    @Param("roleId", new ParseIntPipe()) roleId: number
+  ){
+    const res = await this.authService.updateRole(roleId, payload);
+    return ApiResponse.success("Role updated successfully", res);
+  }
+
+  @Put("/:userId/role/:roleId/assign")
+  @UseGuards(JwtGuard)
+  async assignUserRole(
+    @Param("userId") userId: string,
+    @Param("roleId", new ParseIntPipe()) roleId: number
+  ){
+    const res = await this.authService.assignRole(userId, roleId);
+    return ApiResponse.success("Role assigned successfully", res);
+  }
+
   @Get("/host-ip")
   async getHostIp() {
     const ipAddress = await this.authService.getIP();
@@ -114,6 +156,11 @@ export class AuthController {
     @Query() payload: QueryAuthDTO,
   ){
     const res = await this.authService.getAuthUsers(payload);
+    return ApiResponse.success("Users fetched successfully", res);
+  }
+  @Get("role")
+  async getRoles(){
+    const res = await this.authService.getRoles();
     return ApiResponse.success("Users fetched successfully", res);
   }
 }

@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, QueryRunner, Repository } from 'typeorm';
+import { DataSource, QueryRunner, Repository, UpdateDateColumn } from 'typeorm';
 import { Auth } from '../entities/auth.entity';
 import * as bcrypt from 'bcryptjs';
 
@@ -23,6 +23,11 @@ import { IQueryResult } from '../shared/interfaces/api-response.interface';
 import { exec } from 'child_process';
 import * as os from 'os';
 import { ProfileWallet } from '../entities/user-wallet.entity';
+import { NotificationContext } from '../notifiction/enums/notification.enum';
+import { MailService } from '../mail/mail.service';
+import { Role } from '../entities/role.entity';
+import { RoleDTO } from '../shared/dtos/role.dto';
+import { error } from 'console';
 
 @Injectable()
 export class AuthService {
@@ -31,12 +36,12 @@ export class AuthService {
     private jwtService: JwtService,
     @InjectDataSource()
     private dataSource: DataSource,
-    private notificationService: NotificationService,
+    private mailService: MailService,
   ) {}
 
   private logger: Logger = new Logger(AuthService.name);
-  generateOTP(): number{
-    return Number(`${Math.random()}`.substr(2, 6))
+  generateOTP(): number {
+    return Number(`${Math.random()}`.substr(2, 6));
   }
 
   async createAccount(dto: UserProfileDTO): Promise<Auth> {
@@ -46,20 +51,22 @@ export class AuthService {
     await queryRunner.startTransaction();
     try {
       await this.validateDto(dto);
-      const { email, firstName, lastName, gender, disabilityType, ...rest } = dto;
+      const { email, firstName, lastName, gender, disabilityType, ...rest } =
+        dto;
 
       const userExist = await queryRunner.manager.findOneBy(Auth, [
-        {email},
-        {phoneNumber: dto.phoneNumber}
+        { email },
+        { phoneNumber: dto.phoneNumber },
       ]);
-      if (userExist) throw new BadRequestException('Email already / Phone number exists');
+      if (userExist)
+        throw new BadRequestException('Email already / Phone number exists');
 
       const payload: Partial<Auth> = {
         email: email.toLowerCase(),
         ...rest,
         firstName,
         lastName,
-        isVerified: true // TODO: Remove
+        isVerified: true, // TODO: Remove
       };
       payload.otpTime = new Date();
       payload.userId = await DBUtils.generateUniqueID(
@@ -73,7 +80,7 @@ export class AuthService {
       const auth = queryRunner.manager.create(Auth, payload);
 
       await queryRunner.manager.save(Auth, auth);
-      
+
       const profile = queryRunner.manager.create(Profile, {
         userId: auth.userId,
         email: email.toLowerCase(),
@@ -83,33 +90,32 @@ export class AuthService {
         disabilityType,
         account: auth,
       });
-      
-      const newUserProfile = await queryRunner.manager.save(
-        Profile,
-        profile,
-      );
 
-      const walletData = queryRunner.manager.create(ProfileWallet, {profile});
+      const newUserProfile = await queryRunner.manager.save(Profile, profile);
+
+      const walletData = queryRunner.manager.create(ProfileWallet, { profile });
       const wallet = await queryRunner.manager.save(ProfileWallet, walletData);
 
       profile.wallet = wallet;
       await queryRunner.manager.save(Profile, profile);
 
       auth.profile = newUserProfile;
-      
+
       await queryRunner.manager.save(Auth, auth);
-      
-      await this.notificationService.sendEmail([auth.email], {
+
+      this.mailService.sendEmail({
+        to: [auth.email],
         subject: 'Account Creation Activation',
-        template: {
-          templatePath: '',
-          content: {
+        context: {
+          receiverName: auth.firstName,
+          entries: {
             otp: payload.otp,
             name: firstName,
           },
         },
-      });
-      
+      })
+      .catch((err) => console.log("Error sending signup OTP out mail", err.message))
+
       await queryRunner.commitTransaction();
       newAuth = auth;
     } catch (error) {
@@ -117,7 +123,7 @@ export class AuthService {
       await queryRunner.rollbackTransaction();
     } finally {
       await queryRunner.release();
-      if(errorData) throw errorData;
+      if (errorData) throw errorData;
       return newAuth;
     }
   }
@@ -133,9 +139,9 @@ export class AuthService {
     const user = await this.authRepository.findOne({
       where: [
         { email: dto.email.toLowerCase() },
-        { phoneNumber: dto.phoneNumber}
+        { phoneNumber: dto.phoneNumber },
       ],
-      relations: ["profile"]
+      relations: ['profile'],
     });
     if (!user) throw new NotFoundException('Invalid credentials');
 
@@ -205,10 +211,16 @@ export class AuthService {
       { email: auth.email },
       { isVerified: true, otp: undefined },
     );
-    this.notificationService.sendEmail([auth.email], {
+    this.mailService.sendEmail({
+      to: [auth.email],
       subject: 'Account Verified',
-      message: 'Your Account has been verified succesfully, Go ahead and login',
-    });
+      context: {
+        receiverName: auth.firstName,
+        message:
+          'Your Account has been verified succesfully, Go ahead and login',
+      },
+    })
+    .catch((err) => console.log("Error sending account verification email", err.message))
     const { accessToken, refreshToken } =
       await this.generateRefreshAndAccessToken(auth.toAuthData(), values);
 
@@ -225,17 +237,21 @@ export class AuthService {
       if (!auth) {
         throw new NotFoundException('Account not found');
       }
-      if (auth.isVerified) {
-        throw new BadRequestException('Account has already been verified');
-      }
+      
       const otp = Number(Math.random().toString().substr(2, 6));
       await this.authRepository.update(
         { email: payload.email },
         { otp, otpTime: new Date() },
       );
-      this.notificationService.sendEmail([auth.email], {
-        subject: 'Verify Your Account',
-        message: `${auth.profile.firstName} verify your account with ${otp}`,
+      this.mailService.sendEmail({
+        to: [auth.email],
+        subject: 'OTP Sent',
+        context: {
+          receiverName: auth.firstName,
+
+          message: `${auth.profile.firstName}, The below information is generated for your use, otp: ${otp}`,
+          entries: { otp },
+        },
       });
       return { email: payload.email, otp };
     } catch (error) {
@@ -266,9 +282,15 @@ export class AuthService {
       { email: payload.email },
       { otp, otpTime: new Date() },
     );
-    await this.notificationService.sendEmail([payload.email], {
+    this.mailService.sendEmail({
+      to: [payload.email],
       subject: 'Reset Password',
-      message: `Use ${otp} to reset your password`,
+
+      context: {
+        receiverName: auth.firstName,
+        message: `Use ${otp} to reset your password`,
+        entries: { otp },
+      },
     });
     return {
       email: payload.email,
@@ -298,48 +320,135 @@ export class AuthService {
       { otp: auth.otp },
       { password, otp: null },
     );
-    this.notificationService.sendEmail([payload.email], {
+    this.mailService.sendEmail({
+      to: [payload.email],
       subject: 'Password reset successful',
-      message: 'Your password was reset successfully',
+      context: {
+        receiverName: auth.firstName,
+
+        message: 'Your password was reset successfully',
+      },
     });
     return 'Password reset done';
   }
 
   async getAuthUsers(dto: QueryAuthDTO): Promise<IQueryResult<Auth>> {
-    const {page, limit, searchTerm, order} = dto;
+    const { page, limit, searchTerm, order } = dto;
     const queryPage = page ? Number(page) : 1;
     const queryLimit = limit ? Number(limit) : 10;
-    const querOrder = order ? order : "ASC";
+    const querOrder = order ? order : 'ASC';
 
-    const queryBuilder = this.authRepository.createQueryBuilder("user")
-    .leftJoinAndSelect(`user.aidServices`, `aidServices`);
-    
-    if(searchTerm){
+    const queryBuilder = this.authRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect(`user.aidServices`, `aidServices`);
+
+    if (searchTerm) {
       const searchTermLowercase = searchTerm.toLowerCase();
       let whereClause = `LOWER("user"."email") LIKE '%${searchTermLowercase}%' `;
-      ["firstName", "lastName", "phoneNumber"].forEach((field) => {
+      ['firstName', 'lastName', 'phoneNumber'].forEach((field) => {
         whereClause += `OR LOWER("user"."${field}") LIKE '%${searchTermLowercase}%' `;
       });
       queryBuilder.where(whereClause);
     }
-    queryBuilder.orderBy(`"user"."firstName"`, querOrder)
-    if(page) queryBuilder.skip((queryPage - 1) * queryLimit).limit(queryLimit);
-   const [data, total] = await queryBuilder.getManyAndCount();
-  return { page: queryPage, limit: queryLimit, total, data};
+    queryBuilder.orderBy(`"user"."firstName"`, querOrder);
+    if (page) queryBuilder.skip((queryPage - 1) * queryLimit).limit(queryLimit);
+    const [data, total] = await queryBuilder.getManyAndCount();
+    return { page: queryPage, limit: queryLimit, total, data };
   }
   async getIP() {
-    const command = /win/i.test(os.platform()) ? "ipconfig" : "sudo ifconfig";
+    const command = /win/i.test(os.platform()) ? 'ipconfig' : 'sudo ifconfig';
     const cmdRes = await new Promise((resolve, reject) => {
       exec(command, (err, stOut, stdErr) => {
-        if(err) reject(err);
+        if (err) reject(err);
         resolve(stOut);
       });
-      
     });
-    console.log("cmdRes", cmdRes);
-    const clientIpMatches = (cmdRes as string).match(/IPv4 Address. . . . . . . . . . . :\s\d+\.\d+\.\d+\.\d+/g);
-    if(!clientIpMatches) return "127.0.0.1";
+    console.log('cmdRes', cmdRes);
+    const clientIpMatches = (cmdRes as string).match(
+      /IPv4 Address. . . . . . . . . . . :\s\d+\.\d+\.\d+\.\d+/g,
+    );
+    if (!clientIpMatches) return '127.0.0.1';
     const clientIp = clientIpMatches[1] || clientIpMatches[0];
-    return clientIp?.replace("IPv4 Address. . . . . . . . . . . : ", "").trim();
+    return clientIp?.replace('IPv4 Address. . . . . . . . . . . : ', '').trim();
+  }
+
+  async createRole(dto: RoleDTO): Promise<Role> {
+    let errorData: unknown;
+    let savedRole: Role;
+    const queryRunner = this.dataSource.createQueryRunner();
+    try{
+      await queryRunner.startTransaction();
+      const {name, description} = dto;
+      const roleExists = await queryRunner.manager.findOneBy(Role, {name: name.toLowerCase()});
+      if(roleExists) throw new BadRequestException("Role already exists");
+      const roledata = queryRunner.manager.create(Role, {...dto, name: name.toLowerCase()});
+      const role = await queryRunner.manager.save(Role, roledata);
+      await queryRunner.commitTransaction();
+      savedRole = role;
+    }catch(error){
+      errorData = error;
+      await queryRunner.rollbackTransaction();
+    }finally{
+      await queryRunner.release();
+      if(errorData) throw errorData;
+      return savedRole;
+    }
+  }
+
+  async updateRole(roleId: number, dto: RoleDTO): Promise<Role> {
+    let errorData: unknown;
+    let savedRole: Role;
+    const queryRunner = this.dataSource.createQueryRunner();
+    try{
+      await queryRunner.startTransaction();
+      const roleExists = await queryRunner.manager.findOneBy(Role, {id: roleId});
+      if(!roleExists) throw new BadRequestException("Role not found");
+      const roledata = queryRunner.manager.create(Role, {...roleExists, ...dto});
+      if(dto.name) roledata.name = dto.name.toLowerCase();
+
+      const role = await queryRunner.manager.save(Role, roledata);
+      await queryRunner.commitTransaction();
+      savedRole = role;
+    }catch(error){
+      errorData = error;
+      await queryRunner.rollbackTransaction();
+    }finally{
+      await queryRunner.release();
+      if(errorData) throw errorData;
+      return savedRole;
+    }
+  }
+
+  
+  async getRoles(): Promise<Role[]> {
+    return await this.dataSource.getRepository(Role).findBy({});
+  }
+  
+  async assignRole(userId: string, roleId: number): Promise<Auth> {
+    let updatedAuth: Auth;
+    let errorData: unknown;
+    const queryRunner = this.dataSource.createQueryRunner();
+    try{
+      await queryRunner.startTransaction();
+      const auth = await queryRunner.manager.findOneBy(Auth, {userId})
+      if(!auth) throw new NotFoundException("Profile not found")
+
+        const role = await queryRunner.manager.findOneBy(Role, {id: roleId})
+    if(!role) throw new NotFoundException("Role not found");
+
+    auth.role = role;
+
+    const savedAuth = await queryRunner.manager.save(Auth, auth);
+    await queryRunner.commitTransaction();
+    updatedAuth = savedAuth;
+  
+      }catch(error){
+      errorData = error;
+      await queryRunner.rollbackTransaction();
+    }finally{
+      await queryRunner.release();
+      if(errorData) throw errorData;
+      return updatedAuth;
+    }
   }
 }

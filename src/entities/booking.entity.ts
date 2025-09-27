@@ -1,12 +1,13 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { AidServiceTag } from "./aid-service-tag.entity";
 import { BookingStatus } from "../shared/enums/booking.enum";
-import { PaymentStatus } from "../shared/enums/payment.enum";
 import { ILocationAddressDTO } from "../shared/dtos/aid-service.dto";
 import { Profile } from "./user.entity";
 import { AidService } from "./aid-service.entity";
 import { AidServiceProfile } from "./aid-service-profile.entity";
 import { VirtualLocationAddressDTO } from "../shared/dtos/booking.dto";
+import { PaymentTransaction } from "./transaction.entity";
+import { PaymentStatus } from "../transaction/enums/payment.enum";
 
 @Entity()
 export class Booking {
@@ -33,10 +34,10 @@ export class Booking {
   @Column({nullable: true})
   bookingNote: string;
 
-  @Column({type: "json"})
+  @Column({type: "json", nullable: true})
   locationAddress: ILocationAddressDTO
 
-  @Column({type: "json"})
+  @Column({type: "json", nullable: true})
   virtualLocationAddress: VirtualLocationAddressDTO
 
   @Column()
@@ -77,6 +78,9 @@ aidServiceProfile: AidServiceProfile;
 
 @ManyToOne(() => Profile, (profile) => profile.bookings )
 profile: Profile;
+
+@OneToOne(() => PaymentTransaction, (trx) => trx.booking)
+paymentTransaction: PaymentTransaction;
 
   @CreateDateColumn()
   createdAt: Date;

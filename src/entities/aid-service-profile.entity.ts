@@ -26,6 +26,9 @@ export class AidServiceProfile {
   verificationStatus: AidServiceProfileVerificationStatus;
 
   @Column({ nullable: true })
+  name?: string;
+
+  @Column({ nullable: true })
   description?: string;
 
   @Column({ default: 0.0 })

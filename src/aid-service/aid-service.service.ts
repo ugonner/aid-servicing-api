@@ -18,7 +18,7 @@ import {
 } from '../shared/enums/aid-service.enum';
 import { AidService } from '../entities/aid-service.entity';
 import { MailService } from '../mail/mail.service';
-import { MailDTO } from '../shared/dtos/mail.dto';
+
 import { AidServiceProvider, Room } from '../entities/room.entity';
 import { IQueryResult } from '../shared/interfaces/api-response.interface';
 import {
@@ -40,6 +40,17 @@ import { AidServiceTag } from '../entities/aid-service-tag.entity';
 import { handleDateQuery } from '../shared/helpers/db';
 import { AidServiceProfileSelectFields } from './datasets/aid-service-profile-select';
 import { AidServiceSelectFields } from './datasets/aid-service-selection';
+import { MailDTO } from '../mail/dtos/mail.dto';
+import { NotificationService } from '../notifiction/notification.service';
+import { NotificationDto } from '../notifiction/dtos/notification.dto';
+import {
+  NotificationContext,
+  NotificationEventType,
+} from '../notifiction/enums/notification.enum';
+import { AidServiceCluster } from '../entities/aid-service-cluster.entity';
+import { Cluster } from '../entities/cluster.entity';
+import { AddOrRemoveAction } from '../user/enums/cluster.enum';
+import { ManageClustersDTO } from '../shared/dtos/cluster.dto';
 
 @Injectable()
 export class AidServiceService {
@@ -47,7 +58,7 @@ export class AidServiceService {
     @InjectDataSource()
     private dataSource: DataSource,
     private readonly fileUploadService: FileUploadService,
-    private mailService: MailService,
+    private notificationService: NotificationService,
   ) {}
 
   async setAidServiceTags(
@@ -92,13 +103,63 @@ export class AidServiceService {
     return aidServiceTags;
   }
 
-  async createAidService(dto: AidServiceDTO): Promise<AidService> {
+  async saveAidServiceClusters(
+    aidService: AidService,
+    clusterIds: number[],
+    action: AddOrRemoveAction,
+    queryRunner: QueryRunner,
+  ): Promise<AidServiceCluster[]> {
+    let savedAidServiceClusters: AidServiceCluster[] =
+      aidService.aidServiceClusters;
+
+    if (action === AddOrRemoveAction.ADD) {
+      if(aidService.aidServiceClusters?.length) await queryRunner.manager.remove(
+        AidServiceCluster,
+        aidService.aidServiceClusters,
+      );
+
+      const clusters = await queryRunner.manager.findBy(Cluster, {
+        id: In(clusterIds),
+      });
+      const aidServiceClusters = queryRunner.manager.create(
+        AidServiceCluster,
+        clusters.map((cluster) => ({
+          aidService,
+          cluster,
+        })),
+      );
+      savedAidServiceClusters = await queryRunner.manager.save(
+        AidServiceCluster,
+        aidServiceClusters,
+      );
+    } else if (action === AddOrRemoveAction.REMOVE) {
+      const targetsERVICEClusters = aidService.aidServiceClusters.filter(
+        (aCluster) =>
+          Boolean(clusterIds.find((clusterId) => clusterId == aCluster.id)),
+      );
+      if(targetsERVICEClusters?.length) await queryRunner.manager.remove(
+        AidServiceCluster,
+        targetsERVICEClusters,
+      );
+    }
+    return savedAidServiceClusters;
+  }
+
+  async createAidService(
+    userId: string,
+    dto: AidServiceDTO,
+  ): Promise<AidService> {
     let newAidServiceData: AidService;
     let errorData: unknown;
     const queryRunner = this.dataSource.createQueryRunner();
     try {
       await queryRunner.startTransaction();
-      const { tags, ...aidServiceDto } = dto;
+      const { tags, clusterIds, ...aidServiceDto } = dto;
+
+      const adminProfile = await queryRunner.manager.findOneBy(Profile, {
+        userId,
+      });
+
       const name = aidServiceDto.name.toLowerCase();
       const serviceExists = await queryRunner.manager.findOneBy(AidService, {
         name,
@@ -109,6 +170,7 @@ export class AidServiceService {
       const aidServiceInit = queryRunner.manager.create(AidService, {
         ...(aidServiceDto || {}),
         name,
+        profile: adminProfile,
       });
 
       const aidService = await queryRunner.manager.save(
@@ -122,6 +184,10 @@ export class AidServiceService {
           tags,
         );
         //aidService.aidServiceTags = aidServiceTags;
+      }
+
+      if(clusterIds?.length){
+        await this.saveAidServiceClusters(aidService, clusterIds, AddOrRemoveAction.ADD, queryRunner);
       }
 
       await queryRunner.commitTransaction();
@@ -146,10 +212,11 @@ export class AidServiceService {
     try {
       await queryRunner.startTransaction();
       const name = dto.name.toLowerCase();
-      const { tags, ...aidServiceDto } = dto;
+      const { tags, clusterIds, ...aidServiceDto } = dto;
 
-      let aidService = await queryRunner.manager.findOneBy(AidService, {
-        id: aidServiceId,
+      let aidService = await queryRunner.manager.findOne(AidService, {
+        where: {id: aidServiceId},
+        relations: ["aidServiceClusters", "aidServiceTags"]
       });
       if (!aidService) throw new NotFoundException('Service not found');
       const aidServiceExists = await queryRunner.manager.findOne(AidService, {
@@ -170,6 +237,11 @@ export class AidServiceService {
         );
         //aidService.aidServiceTags = aidServiceTags;
       }
+      if(clusterIds?.length){
+        await this.saveAidServiceClusters(
+          aidService, clusterIds, AddOrRemoveAction.ADD, queryRunner
+        );
+      }
       await queryRunner.commitTransaction();
       newAidServiceData = aidService;
     } catch (error) {
@@ -182,13 +254,41 @@ export class AidServiceService {
     }
   }
 
+  async updateAidServiceClusters(aidServiceId: number, dto: ManageClustersDTO): Promise<AidServiceCluster[]> {
+    let updatedAidServiceClusters: AidServiceCluster[];
+    let errorData: unknown;
+    const queryRunner = this.dataSource.createQueryRunner();
+    try{
+      await queryRunner.startTransaction();
+      const aidService = await queryRunner.manager.findOne(AidService, {
+        where: {id: aidServiceId},
+        relations: ["aidServiceClusters"]
+      });
+      if(!aidService) throw new NotFoundException("aid service not found");
+      const saved = await this.saveAidServiceClusters(
+        aidService, dto.clusterIds, dto.options.action, queryRunner
+      )
+      await queryRunner.commitTransaction();
+      updatedAidServiceClusters = saved;
+    }catch(error){
+      errorData = error;
+      await queryRunner.rollbackTransaction();
+    }finally{
+      await queryRunner.release();
+      if(errorData) throw errorData;
+      return updatedAidServiceClusters;
+    }
+  }
+
   getQueryBuilder(): SelectQueryBuilder<AidService> {
     const repository = this.dataSource.manager.getRepository(AidService);
     return repository
       .createQueryBuilder('aidService')
       .select(AidServiceSelectFields)
       .leftJoinAndSelect('aidService.aidServiceTags', 'aidServiceTags')
-      .leftJoinAndSelect('aidServiceTags.tag', 'tags');
+      .leftJoinAndSelect('aidServiceTags.tag', 'tags')
+      .leftJoinAndSelect("aidService.aidServiceClusters", "aidServiceClusters")
+      .leftJoinAndSelect("aidServiceClusters.cluster", "clusters")
   }
 
   async getAidServices(
@@ -196,6 +296,7 @@ export class AidServiceService {
   ): Promise<IQueryResult<AidService>> {
     const {
       tags,
+      clusterIds,
       searchTerm,
       startDate,
       endDate,
@@ -236,6 +337,11 @@ export class AidServiceService {
       queryBuilder.andWhere('tags.id IN (:...tagArr)', { tagArr });
     }
 
+    if (clusterIds) {
+      const clusterArr = clusterIds.split(',');
+      queryBuilder.andWhere('clusters.id IN (:...clusterArr)', { clusterArr });
+    }
+
     if (searchTerm) {
       const searchFields = ['name', 'description'];
       let queryStr = `LOWER(aidservice.name) LIKE :searchTerm`;
@@ -243,7 +349,7 @@ export class AidServiceService {
         queryStr += ` OR LOWER(aidservice.${field}) LIKE :searchTerm`;
       });
 
-      ["name"].forEach((field) => {
+      ['name'].forEach((field) => {
         queryStr += ` OR LOWER(tags.${field}) LIKE :searchTerm`;
       });
 
@@ -263,7 +369,7 @@ export class AidServiceService {
     return { page: queryPage, limit: queryLimit, total, data };
   }
 
-  async applyForAidServiceProfile(
+  async createOrUpdateAidServiceProfile(
     userId: string,
     dto: AidServiceProfileApplicationDTO,
   ): Promise<AidServiceProfile> {
@@ -326,12 +432,42 @@ export class AidServiceService {
         AidServiceProfile,
         aidServiceProfile,
       );
-      if(isNewProfile && savedAidServiceProfile.aidService){
-        savedAidServiceProfile.aidService.noOfAidServiceProfiles = Number(savedAidServiceProfile.aidService.noOfAidServiceProfiles) + 1;
-        await queryRunner.manager.save(AidService, savedAidServiceProfile.aidService); 
-      } 
+      if (isNewProfile && savedAidServiceProfile.aidService) {
+        savedAidServiceProfile.aidService.noOfAidServiceProfiles =
+          Number(savedAidServiceProfile.aidService.noOfAidServiceProfiles) + 1;
+        await queryRunner.manager.save(
+          AidService,
+          savedAidServiceProfile.aidService,
+        );
+      }
       await queryRunner.commitTransaction();
       updatedAidServiceProfile = savedAidServiceProfile;
+
+      const notDto: NotificationDto = {
+        creator: savedAidServiceProfile.profile,
+        receivers: [
+          savedAidServiceProfile.aidService?.profile,
+          savedAidServiceProfile?.profile,
+        ],
+        context: NotificationContext.SERVICE_PROFILE,
+        contextEntityId: savedAidServiceProfile?.id,
+        notificationEventType: isNewProfile
+          ? NotificationEventType.AID_SERVICE_PROFILE_APPLICATION
+          : NotificationEventType.AID_SERVICE_PROFILE_APPLICATION_UPDATE,
+        title: isNewProfile
+          ? NotificationEventType.AID_SERVICE_PROFILE_APPLICATION
+          : NotificationEventType.AID_SERVICE_PROFILE_APPLICATION_UPDATE,
+        description: isNewProfile
+          ? `A New Application has been received`
+          : `Profile Application detail updated`,
+        data: {
+          link: `${process.env.APP_URL}/aid-service/profile?aspi=${savedAidServiceProfile?.id}`,
+        },
+      };
+      this.notificationService.sendNotification(notDto, {
+        sendEmail: true,
+        notifyAdmin: true,
+      });
     } catch (error) {
       errorData = error;
       await queryRunner.rollbackTransaction();
@@ -382,17 +518,33 @@ export class AidServiceService {
       await queryRunner.commitTransaction();
       updatedAidServiceProfile = savedAidServiceProfile;
 
-      const mailDto: MailDTO = {
-        to: aidServiceProfile.profile?.email,
-        subject: 'Aid service profile Verification status update',
-        template: 'aid-service/aid-service-verification',
-        context: {
-          name: aidServiceProfile.profile?.firstName,
+      const notDto: NotificationDto = {
+        creator: aidServiceProfile?.profile,
+        receivers: [aidServiceProfile.profile],
+        context: NotificationContext.SERVICE_PROFILE,
+        contextEntityId: aidServiceProfile.id,
+        notificationEventType:
+          dto.verificationStatus ===
+          AidServiceProfileVerificationStatus.VERIFIED
+            ? NotificationEventType.AID_SERVICE_PROFILE_APPLICATION_APPROVED
+            : NotificationEventType.AID_SERVICE_PROFILE_VERIFICATION_UPDATE,
+        title:
+          dto.verificationStatus ===
+          AidServiceProfileVerificationStatus.VERIFIED
+            ? NotificationEventType.AID_SERVICE_PROFILE_APPLICATION_APPROVED
+            : NotificationEventType.AID_SERVICE_PROFILE_VERIFICATION_UPDATE,
+        description: `The verification status of this profile has been updated to: ${dto.verificationStatus}`,
+        data: {
+          link: `${process.env.APP_URL}/aid-service/profile?aspi=${savedAidServiceProfile?.id}`,
+          receiverName: aidServiceProfile.profile?.firstName,
           verification: dto.verificationStatus,
           comment: dto.verificationComment,
         },
       };
-      this.mailService.sendEmail(mailDto);
+      this.notificationService.sendNotification(notDto, {
+        sendEmail: true,
+        notifyAdmin: false,
+      });
     } catch (error) {
       errorData = error;
       await queryRunner.rollbackTransaction();
@@ -471,12 +623,7 @@ export class AidServiceService {
   async getAidServiceProfiles(
     dto: QueryAidServiceProfileDTO,
   ): Promise<IQueryResult<AidServiceProfile>> {
-    const {
-      verificationStatus,
-      aidServiceId,
-      userId,
-      searchTerm
-    } = dto;
+    const { clusterIds, verificationStatus, aidServiceId, aidServiceProfileId, userId, searchTerm } = dto;
 
     const queryOrder = dto.order ? dto.order : 'ASC';
     const queryPage = dto.page ? Number(dto.page) : 1;
@@ -488,18 +635,30 @@ export class AidServiceService {
       .select(AidServiceProfileSelectFields)
       .leftJoinAndSelect('aidServiceProfile.profile', 'profile')
       .leftJoin('aidServiceProfile.aidService', 'aidService')
-      .where('aidServiceProfiles.isDeleted = false');
+      .leftJoinAndSelect("aidService.aidServiceClusters", "aidServiceClusters")
+      .leftJoinAndSelect("aidServiceClusters.cluster", "clusters")
+      .where('aidServiceProfile.isDeleted = false');
 
     if (aidServiceId) {
       queryBuilder.andWhere('aidService.id = :aidServiceId', { aidServiceId });
     }
+    
 
-    if (userId) {
-      queryBuilder.andWhere('profile = :userId', { userId });
+    if (clusterIds) {
+      const clusterArr = clusterIds.split(',');
+      queryBuilder.andWhere('clusters.id IN (:...clusterArr)', { clusterArr });
     }
 
+
     if (userId) {
-      queryBuilder.andWhere('profile = :userId', { userId });
+      queryBuilder.andWhere('profile.userId = :userId', { userId });
+    }
+    if (aidServiceId) {
+      queryBuilder.andWhere('aidService.id = :aidServiceId', { aidServiceId });
+    }
+
+    if(aidServiceProfileId){
+      queryBuilder.andWhere(`aidServiceProfile.id = :aidServiceProfileId`, {aidServiceProfileId})
     }
 
     if (verificationStatus) {
@@ -511,8 +670,8 @@ export class AidServiceService {
 
     if (searchTerm) {
       let queryStr = `LOWER(aidserviceProfile.name) LIKE :searchTerm`;
-      
-      let searchFields = ['email', 'firstName', 'lastName', "disabilityType"];
+
+      let searchFields = ['email', 'firstName', 'lastName', 'disabilityType'];
       searchFields.forEach((field) => {
         queryStr += ` OR LOWER(profile.${field}) LIKE :searchTerm`;
       });
@@ -533,15 +692,17 @@ export class AidServiceService {
 
   async getAidService(aidServiceId: number): Promise<AidService> {
     return await this.dataSource.getRepository(AidService).findOne({
-      where: {id: aidServiceId},
-    })
+      where: { id: aidServiceId },
+    });
   }
 
-  async getAidServiceProfile(aidServiceProfileId: number): Promise<AidServiceProfile> {
+  async getAidServiceProfile(
+    aidServiceProfileId: number,
+  ): Promise<AidServiceProfile> {
     return await this.dataSource.getRepository(AidServiceProfile).findOne({
-      where: {id: aidServiceProfileId},
-      relations: ["profile", "aidService"]
-    })
+      where: { id: aidServiceProfileId },
+      relations: ['profile', 'aidService'],
+    });
   }
   async getTags(): Promise<Tag[]> {
     return await this.dataSource.getRepository(Tag).find();
