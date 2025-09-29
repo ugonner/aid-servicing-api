@@ -14,6 +14,7 @@ import { FileUploadService } from './file-upload.service';
 import { ApiResponse } from '../shared/helpers/apiresponse';
 import { AllExceptionFilter } from '../shared/interceptors/all-exceptions.filter';
 import { IAttachment } from '../shared/interfaces/typings';
+import { File as MulterFile} from "multer";
 
 @Controller('file-upload')
 @UseFilters(AllExceptionFilter)
@@ -22,7 +23,7 @@ export class FileUploadController {
 
   @Post()
   @UseInterceptors(FileInterceptor('file'))
-  async createAudioFile(@UploadedFile() file: Express.Multer.File) {
+  async createAudioFile(@UploadedFile() file: MulterFile) {
     let res: IAttachment;
 
     if (/cloudinary/i.test(process.env.STORAGE_PLATFORM))
@@ -35,7 +36,7 @@ export class FileUploadController {
   }
   @Post('multiple')
   @UseInterceptors(FilesInterceptor('files'))
-  async addMultipleFiles(@UploadedFiles() files: Express.Multer.File[]) {
+  async addMultipleFiles(@UploadedFiles() files: MulterFile[]) {
     let res: IAttachment[];
     if (!files || files.length === 0)
       return ApiResponse.fail('No files uploaded', HttpStatus.BAD_REQUEST);
