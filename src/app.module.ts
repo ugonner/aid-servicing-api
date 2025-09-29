@@ -27,7 +27,7 @@ import { TransactionModule } from './transaction/transaction.module';
     ConfigModule.forRoot({isGlobal: true}),
     TypeOrmModule.forRootAsync({
       useFactory: (configService: ConfigService) => ({
-        type: "mysql",
+        type: process.env.DATABASE_TYPE,
         host: process.env.DATABASE_HOST,
         port: Number(process.env.DATABASE_PORT),
         username: process.env.DATABASE_USER,
