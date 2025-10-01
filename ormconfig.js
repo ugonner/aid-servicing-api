@@ -22,6 +22,9 @@ const typeOrmConfig = {
       migrationsDir: path.join(__dirname, "dist/migrations"),
       //"subscribersDir": "src/subscriber"
     },
+    ssl: process.env.NODE_ENV === 'production' 
+  ? { rejectUnauthorized: false } 
+  : false,
 };
 //export {typeOrmConfig};
 module.exports = new DataSource(typeOrmConfig);

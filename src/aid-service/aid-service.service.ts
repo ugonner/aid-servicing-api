@@ -312,13 +312,13 @@ export class AidServiceService {
     const queryOrderBy = 'createdAt';
 
     let queryBuilder = this.getQueryBuilder();
-    queryBuilder.where('aidservice.isDeleted != :isDeleted', {
+    queryBuilder.where('aidService.isDeleted != :isDeleted', {
       isDeleted: true,
     });
 
     if (queryFields) {
       Object.keys(queryFields).forEach((field) => {
-        queryBuilder.andWhere(`aidservice.${field} = :value`, {
+        queryBuilder.andWhere(`aidService.${field} = :value`, {
           value: queryFields[field],
         });
       });
@@ -326,7 +326,7 @@ export class AidServiceService {
 
     if (startDate || endDate || dDate) {
       queryBuilder = handleDateQuery<AidService>(
-        { startDate, endDate, dDate, entityAlias: 'aidservice' },
+        { startDate, endDate, dDate, entityAlias: 'aidService' },
         queryBuilder,
         'createdAt',
       );
@@ -344,9 +344,9 @@ export class AidServiceService {
 
     if (searchTerm) {
       const searchFields = ['name', 'description'];
-      let queryStr = `LOWER(aidservice.name) LIKE :searchTerm`;
+      let queryStr = `LOWER(aidService.name) LIKE :searchTerm`;
       searchFields.forEach((field) => {
-        queryStr += ` OR LOWER(aidservice.${field}) LIKE :searchTerm`;
+        queryStr += ` OR LOWER(aidService.${field}) LIKE :searchTerm`;
       });
 
       ['name'].forEach((field) => {
@@ -358,10 +358,10 @@ export class AidServiceService {
       });
     }
 
-    //queryBuilder.andWhere(`aidservice.isDeleted = :isDeleted`, {isDeleted: true})
+    //queryBuilder.andWhere(`aidService.isDeleted = :isDeleted`, {isDeleted: true})
 
     const [data, total] = await queryBuilder
-      .orderBy(`aidservice.${queryOrderBy}`, queryOrder as 'ASC' | 'DESC')
+      .orderBy(`aidService.${queryOrderBy}`, queryOrder as 'ASC' | 'DESC')
       .skip((queryPage - 1) * queryLimit)
       .limit(queryLimit)
       .getManyAndCount();
@@ -669,7 +669,7 @@ export class AidServiceService {
     }
 
     if (searchTerm) {
-      let queryStr = `LOWER(aidserviceProfile.name) LIKE :searchTerm`;
+      let queryStr = `LOWER(aidServiceProfile.name) LIKE :searchTerm`;
 
       let searchFields = ['email', 'firstName', 'lastName', 'disabilityType'];
       searchFields.forEach((field) => {
