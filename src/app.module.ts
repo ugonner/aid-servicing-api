@@ -34,7 +34,10 @@ import { TransactionModule } from './transaction/transaction.module';
         password: process.env.DATABASE_PASSWORD,
         database: process.env.DATABASE_NAME,
         entities: ['dist/**/*.entity.js'],
-      synchronize: false
+      synchronize: false,
+      ssl: process.env.NODE_ENV === 'production' 
+  ? { rejectUnauthorized: false } 
+  : false,
       }),
       inject: [ConfigService]
     }),

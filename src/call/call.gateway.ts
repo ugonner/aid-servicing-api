@@ -81,6 +81,7 @@ export class CallGateway
   @SubscribeMessage(BroadcastEvents.INIT_CONNECTED_USER)
   async initConnectedUser(client: Socket, payload: IInitUserConnectionDTO) {
     try {
+      
       await this.insertUser(payload);
       const record = await this.getConnectedUsersRecord();
        const res = ApiResponse.success("users fetched successfully", record);
