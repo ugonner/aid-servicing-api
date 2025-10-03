@@ -43,13 +43,14 @@ export class TransactionService {
     let errorData: unknown;
     const queryRunner = this.dataSource.createQueryRunner();
     try {
+      
       await queryRunner.startTransaction();
       const { bookingId, ...transactionDto } = dto;
 
       const profile = await queryRunner.manager.findOneBy(Profile, { userId });
       let trxData = queryRunner.manager.create(
         PaymentTransaction,
-        transactionDto,
+        {...transactionDto, paymentStatus: PaymentStatus.PENDING},
       );
 
       if (dto.paymentPurpose === PaymentPurpose.SERVICE_PAYMENT) {
