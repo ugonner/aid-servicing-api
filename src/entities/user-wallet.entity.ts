@@ -21,13 +21,13 @@ export class ProfileWallet {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({type: "float", default: 0.00, precision: 2})
+  @Column({type: "float", default: 0.00})
   fundedBalance: number;
   
-  @Column({type: "float", default: 0.00, precision: 2})
+  @Column({type: "float", default: 0.00})
   earnedBalance: number;
   
-  @Column({type: "float", default: 0.00, precision: 2})
+  @Column({type: "float", default: 0.00})
   pendingBalance: number;
 
   @OneToOne(() => Profile, (profile) => profile.wallet)

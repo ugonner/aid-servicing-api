@@ -37,7 +37,7 @@ export class CallService {
 
       const {aidService, profile} = aidServiceProfile;
 
-      const callDuration = dto.startTime ? Math.floor(((Number(dto.endTime) - Number(dto.startTime)) / 60)) : 0;
+      const callDuration = dto.startTime ? Math.trunc(((Number(dto.endTime) - Number(dto.startTime)) / 1000)) : 0;
       const aidServiciecostRate = dto.callType === CallType.AUDIO ? Number(aidService.audioCallRate) : Number(aidService.videoCallRate);
       const callCost = callDuration * Number(aidServiciecostRate);
       if(dto.callType === CallType.AUDIO) {
@@ -67,8 +67,13 @@ export class CallService {
 
     
       const initiatorWallet = await queryRunner.manager.findOne(ProfileWallet, {where: {profile: {userId: initiatedByProfile.userId}}})
-      initiatorWallet.earnedBalance = Number(initiatorWallet.earnedBalance) - callCost;
-      await queryRunner.manager.save(ProfileWallet, initiatorWallet);
+      initiatorWallet.fundedBalance = Number(initiatorWallet.fundedBalance) - callCost;
+    
+      const aidserviceProfileWallet = await queryRunner.manager.findOneBy(ProfileWallet, {
+        profile: {userId: aidServiceProfile.profile?.userId}
+      });
+      aidserviceProfileWallet.earnedBalance = Number(aidserviceProfileWallet.earnedBalance) + callCost;
+      await queryRunner.manager.save(ProfileWallet, [initiatorWallet, aidserviceProfileWallet]);
 
 
       const callRoomData: Partial<CallRoom> = {...restCallRoomDto, callMembers: callMembersProfiles, aidServiceProfile, initiatedBy: initiatedByProfile};

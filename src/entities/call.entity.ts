@@ -16,10 +16,10 @@ export class CallRoom {
     @Column()
     roomType: RoomType;
 
-    @Column()
+    @Column({type: "varchar"})
     startTime: number;
 
-    @Column()
+    @Column({type: "varchar"})
     endTime: number;
 
     @Column({type: "bool", default: false})
