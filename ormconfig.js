@@ -23,7 +23,7 @@ const typeOrmConfig = {
       //"subscribersDir": "src/subscriber"
     },
     ssl: process.env.NODE_ENV === 'production' 
-  ? { rejectUnauthorized: false } 
+  ? { sslMode: "require", rejectUnauthorized: false } 
   : false,
 };
 //export {typeOrmConfig};

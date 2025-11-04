@@ -534,7 +534,7 @@ export class BookingService {
       queryBuilder.andWhere(`aidServiceProfile.id = :aidServiceProfileId`, {aidServiceProfileId})
     }
     if(userId){
-      queryBuilder.andWhere("profile.userId = :userId || aidServiceProfileProfile.userId = :userId",  {userId})
+      queryBuilder.andWhere("profile.userId = :userId OR aidServiceProfileProfile.userId = :userId",  {userId})
     }
     
 
