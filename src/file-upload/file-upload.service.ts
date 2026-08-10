@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import {File as MulterFile} from "multer";
-
+import { Multer } from 'multer';
 import * as toStream from 'buffer-to-stream';
 import { UploadApiResponse, v2 } from 'cloudinary';
 import { IAttachment } from '../shared/interfaces/typings';
@@ -34,16 +33,16 @@ export class FileUploadService {
     });
     
   }
-  async uploadMessageAttachmentToLocal(file: MulterFile): Promise<IAttachment> {
+  async uploadMessageAttachmentToLocal(file: Express.Multer.File): Promise<IAttachment> {
     console.log("file name", file.originalname);
     //const fileExtension = file.originalname.split(".")[-1];
      
 
     const attachmentUrl = `/products/${Date.now()}.${file.originalname.replace(" ", "_")}`;
     const filePath = path.join(__dirname, '..', '..', 'public', attachmentUrl);
-    fs.writeFileSync(filePath, file.buffer);
+    fs.writeFileSync(filePath, file.buffer as unknown as string);
     await new Promise((resolve, reject) => {
-      fs.writeFile(filePath, file.buffer, (err) => {
+      fs.writeFile(filePath, file.buffer as unknown as string, (err) => {
         if (err) reject(err);
         resolve(attachmentUrl);
       });
@@ -55,7 +54,7 @@ export class FileUploadService {
     return attachmentData;
   }
 
-  async uploadMessageAttachmentToCloudinary(file: MulterFile): Promise<IAttachment> {
+  async uploadMessageAttachmentToCloudinary(file: Express.Multer.File): Promise<IAttachment> {
     
     
 

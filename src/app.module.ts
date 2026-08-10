@@ -19,6 +19,7 @@ import { BookingModule } from './booking/booking.module';
 import { ReviewModule } from './review/review.module';
 import { ReportModule } from './report/report.module';
 import { TransactionModule } from './transaction/transaction.module';
+import { OCRModule } from './ocr/ocr.module';
 
 @Module({
   imports: [
@@ -72,7 +73,8 @@ import { TransactionModule } from './transaction/transaction.module';
     ReviewModule,
     ReportModule,
     NotificationModule,
-    TransactionModule
+    TransactionModule,
+    OCRModule
   
 
   ],
