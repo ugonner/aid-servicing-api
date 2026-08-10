@@ -1,0 +1,1 @@
+{"version":3,"file":"event-utility.js","sourceRoot":"","sources":["../../src/call/event-utility.ts"],"names":[],"mappings":";;;AAGA,MAAa,YAAY;IACd,MAAM,CAAC,yBAAyB,CACnC,MAA8B,EAC9B,MAAc,EACd,IAAY;QAEZ,MAAM,CAAC,EAAE,CAAC,QAAQ,EAAE,GAAG,EAAE;YACrB,MAAM,CAAC,EAAE,CAAC,IAAI,CAAC,CAAC,IAAI,CAAC,cAAc,EAAE,EAAE,CAAC,CAAC;QAC7C,CAAC,CAAC,CAAA;IACN,CAAC;CACJ;AAVD,oCAUC"}

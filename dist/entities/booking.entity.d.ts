@@ -1,0 +1,35 @@
+import { BookingStatus } from "../shared/enums/booking.enum";
+import { ILocationAddressDTO } from "../shared/dtos/aid-service.dto";
+import { Profile } from "./user.entity";
+import { AidService } from "./aid-service.entity";
+import { AidServiceProfile } from "./aid-service-profile.entity";
+import { VirtualLocationAddressDTO } from "../shared/dtos/booking.dto";
+import { PaymentTransaction } from "./transaction.entity";
+import { PaymentStatus } from "../transaction/enums/payment.enum";
+export declare class Booking {
+    id: number;
+    compositeBookingId: string;
+    bookingStatus: BookingStatus;
+    bookingStatusNote?: string;
+    paymentStatus: PaymentStatus;
+    totalAmount: number;
+    bookingNote: string;
+    locationAddress: ILocationAddressDTO;
+    virtualLocationAddress: VirtualLocationAddressDTO;
+    startDate: string;
+    endDate: string;
+    duration: number;
+    isMatched: boolean;
+    confirmedByProvider: boolean;
+    confirmedByUser: boolean;
+    isVirtualLocation: boolean;
+    rating: number;
+    review: string;
+    aidService: AidService;
+    aidServiceProfile: AidServiceProfile;
+    profile: Profile;
+    paymentTransaction: PaymentTransaction;
+    createdAt: Date;
+    updatedAt: Date;
+    isDeleted: boolean;
+}

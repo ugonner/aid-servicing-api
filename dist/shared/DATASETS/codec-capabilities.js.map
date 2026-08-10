@@ -1,0 +1,1 @@
+{"version":3,"file":"codec-capabilities.js","sourceRoot":"","sources":["../../../src/shared/DATASETS/codec-capabilities.ts"],"names":[],"mappings":";;;AACa,QAAA,iBAAiB,GAAyC;IACnE;QACE,IAAI,EAAE,OAAO;QACb,QAAQ,EAAE,YAAY;QACtB,SAAS,EAAE,KAAK;QAChB,QAAQ,EAAE,CAAC;KACZ;IACD;QACE,IAAI,EAAE,OAAO;QACb,QAAQ,EAAE,WAAW;QACrB,SAAS,EAAE,KAAK;KACjB;CACF,CAAC"}

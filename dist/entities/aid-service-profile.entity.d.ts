@@ -1,0 +1,38 @@
+import { Profile } from './user.entity';
+import { CallRoom } from './call.entity';
+import { AidServiceProfileVerificationStatus } from '../shared/enums/aid-service.enum';
+import { AidService } from './aid-service.entity';
+import { ILocationAddressDTO, ISocialMediaLinksDTO } from '../shared/dtos/aid-service.dto';
+import { Booking } from './booking.entity';
+export declare class AidServiceProfile {
+    id: number;
+    verificationStatus: AidServiceProfileVerificationStatus;
+    name?: string;
+    description?: string;
+    audioCallEarnings?: number;
+    videoCallEarnings?: number;
+    onSiteEarnings?: number;
+    virtualServiceEarnings?: number;
+    totalEarningsBalance?: number;
+    noOfAudioCallServices?: number;
+    noOfVideoCallServices?: number;
+    noOfOnSiteServices?: number;
+    noOfVirtualServices?: number;
+    totalServicesRendered: number;
+    businessDocumentUrl?: string;
+    mediaFile?: string;
+    contactPhoneNumber?: string;
+    socialMediaLinks: ISocialMediaLinksDTO;
+    locationAddress: ILocationAddressDTO;
+    verificationComment: string;
+    averageRating: number;
+    noOfRatings: number;
+    verifiedBy: Profile;
+    profile: Profile;
+    aidService: AidService;
+    calls: CallRoom[];
+    bookings: Booking[];
+    createdAt: Date;
+    updatedAt: Date;
+    isDeleted: boolean;
+}

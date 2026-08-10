@@ -1,0 +1,33 @@
+import { DataSource, QueryRunner, SelectQueryBuilder } from 'typeorm';
+import { AidService } from '../entities/aid-service.entity';
+import { IQueryResult } from '../shared/interfaces/api-response.interface';
+import { AidServiceDTO, AidServiceProfileApplicationDTO, QueryAidServiceDTO, QueryAidServiceProfileDTO, VerifyAidServiceProfileDTO } from '../shared/dtos/aid-service.dto';
+import { AidServiceProfile } from '../entities/aid-service-profile.entity';
+import { FileUploadService } from '../file-upload/file-upload.service';
+import { Tag } from '../entities/tag.entity';
+import { TagDTO } from '../shared/dtos/tag.dto';
+import { AidServiceTag } from '../entities/aid-service-tag.entity';
+import { NotificationService } from '../notifiction/notification.service';
+import { AidServiceCluster } from '../entities/aid-service-cluster.entity';
+import { AddOrRemoveAction } from '../user/enums/cluster.enum';
+import { ManageClustersDTO } from '../shared/dtos/cluster.dto';
+export declare class AidServiceService {
+    private dataSource;
+    private readonly fileUploadService;
+    private notificationService;
+    constructor(dataSource: DataSource, fileUploadService: FileUploadService, notificationService: NotificationService);
+    setAidServiceTags(queryRunner: QueryRunner, aidService: AidService, tags: TagDTO[]): Promise<AidServiceTag[]>;
+    saveAidServiceClusters(aidService: AidService, clusterIds: number[], action: AddOrRemoveAction, queryRunner: QueryRunner): Promise<AidServiceCluster[]>;
+    createAidService(userId: string, dto: AidServiceDTO): Promise<AidService>;
+    updateAidService(aidServiceId: number, dto: AidServiceDTO): Promise<AidService>;
+    updateAidServiceClusters(aidServiceId: number, dto: ManageClustersDTO): Promise<AidServiceCluster[]>;
+    getQueryBuilder(): SelectQueryBuilder<AidService>;
+    getAidServices(dto: QueryAidServiceDTO): Promise<IQueryResult<AidService>>;
+    createOrUpdateAidServiceProfile(userId: string, dto: AidServiceProfileApplicationDTO): Promise<AidServiceProfile>;
+    updateUserAidServiceVerificationStatus(aidServiceProfileId: number, dto: VerifyAidServiceProfileDTO, userId: string): Promise<AidServiceProfile>;
+    updateUserAidService(userId: string, aidServiceId: number, action: 'add' | 'remove'): Promise<AidServiceProfile>;
+    getAidServiceProfiles(dto: QueryAidServiceProfileDTO): Promise<IQueryResult<AidServiceProfile>>;
+    getAidService(aidServiceId: number): Promise<AidService>;
+    getAidServiceProfile(aidServiceProfileId: number): Promise<AidServiceProfile>;
+    getTags(): Promise<Tag[]>;
+}
