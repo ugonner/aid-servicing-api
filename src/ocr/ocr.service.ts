@@ -91,7 +91,7 @@ return null for fields in the response schema that you could not identify.
         responseSchema
       },
     });
-    console.log("GEMINI RESPONSE", result.text);
+    //console.log("GEMINI RESPONSE", result.text);
     return result.text;
   }
 
