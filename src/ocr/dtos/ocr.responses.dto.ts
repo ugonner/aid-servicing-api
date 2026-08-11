@@ -10,7 +10,7 @@ export const genericResponeType = {
     documentType: {type: Type.STRING, description: `What type of document is this eg ${Object.values(Hard_Document_Type).join(", ")}`},
     content: {
       type: Type.STRING,
-      description: 'full text detected, maintain format including paragraphs',
+      description: `If this image is essentially a document like ${Object.values(Hard_Document_Type).join(", ")} or textual, this shuld be the verbatim of text as detected, maintaining formats including paragraphs. Otherwise, this should be a detailed descriptive narration of every detail observed in the image, including positioning, helpful or guide to a visually impaired person. `,
     },
     summary: {
       type: Type.STRING,
