@@ -3,24 +3,28 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.rechargeVoucherResponse = exports.drugLabelResponse = exports.rReceiptAndInvoiceResponse = exports.currencyIdentificationResponse = exports.basicResponseSchema = exports.genericResponeType = void 0;
 const genai_1 = require("@google/genai");
 const ocr_enum_1 = require("../enums/ocr.enum");
-exports.genericResponeType = {
-    type: genai_1.Type.OBJECT,
-    properties: {
-        confidence: {
-            type: genai_1.Type.NUMBER,
-            description: 'How confident are you of your accuracy, be blunt',
+const genericResponeType = (dto) => {
+    let contentDescription = [ocr_enum_1.OCRServiceType.HARD_DOCUMENT_READING, ocr_enum_1.OCRServiceType.RECHARGE_CARD, ocr_enum_1.OCRServiceType.CURRENCY_ID].includes(dto.ocrServiceType) ? `If this image is essentially a document like ${Object.values(ocr_enum_1.Hard_Document_Type).join(", ")} or textual, this should be the verbatim of text as detected, maintaining formats including paragraphs. Otherwise, this should be a detailed descriptive narration of every detail observed in the image, including positioning, helpful or guide to a visually impaired person. ` : `Provide a comprehensive, objective, accessibility-focused narration of the image for a visually impaired person. Start with a concise overview of the scene, then describe people including posture and emotion, objects, actions, spatial relationships, environment, colors, visible text, and other relevant visual details. Use positional descriptions such as left, right, foreground, background, above, below, near, and far where useful. Prioritize information that helps the user understand the scene and its context. Indicate any inscriptions on objects. Do not invent or speculate about details that cannot be reliably determined from the image. Clearly indicate uncertainty when necessary.`;
+    return ({
+        type: genai_1.Type.OBJECT,
+        properties: {
+            confidence: {
+                type: genai_1.Type.NUMBER,
+                description: 'How confident are you of your accuracy, be blunt',
+            },
+            documentType: { type: genai_1.Type.STRING, description: `What type of document is this eg ${Object.values(ocr_enum_1.Hard_Document_Type).join(", ")}` },
+            content: {
+                type: genai_1.Type.STRING,
+                description: contentDescription,
+            },
+            summary: {
+                type: genai_1.Type.STRING,
+                description: 'A very brief summary of what you detected',
+            },
         },
-        documentType: { type: genai_1.Type.STRING, description: `What type of document is this eg ${Object.values(ocr_enum_1.Hard_Document_Type).join(", ")}` },
-        content: {
-            type: genai_1.Type.STRING,
-            description: 'full text detected, maintain format including paragraphs',
-        },
-        summary: {
-            type: genai_1.Type.STRING,
-            description: 'A very brief summary of what you detected',
-        },
-    },
+    });
 };
+exports.genericResponeType = genericResponeType;
 exports.basicResponseSchema = {
     type: genai_1.Type.OBJECT,
     properties: {

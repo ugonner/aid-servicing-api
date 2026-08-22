@@ -67,7 +67,7 @@ return null for fields in the response schema that you could not identify.
     return { 
       type: Type.OBJECT,
        properties: {
-        baseDetail: genericResponeType,
+        baseDetail: genericResponeType(dto),
       particulars: responseSchema 
     }
   };

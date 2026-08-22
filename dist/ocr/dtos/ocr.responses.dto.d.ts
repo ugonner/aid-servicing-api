@@ -1,5 +1,6 @@
 import { Type } from '@google/genai';
-export declare const genericResponeType: {
+import { OCRRequestDto } from './ocr.request.dto';
+export declare const genericResponeType: (dto: OCRRequestDto) => {
     type: Type;
     properties: {
         confidence: {
@@ -23,7 +24,7 @@ export declare const genericResponeType: {
 export declare const basicResponseSchema: {
     type: Type;
     properties: {
-        baseInformation: {
+        baseInformation: (dto: OCRRequestDto) => {
             type: Type;
             properties: {
                 confidence: {

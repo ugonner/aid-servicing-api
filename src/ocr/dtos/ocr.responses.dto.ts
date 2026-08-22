@@ -1,6 +1,10 @@
 import { Type } from '@google/genai';
-import { Hard_Document_Type } from '../enums/ocr.enum';
-export const genericResponeType = {
+import { Hard_Document_Type, OCRServiceType } from '../enums/ocr.enum';
+import { OCRRequestDto } from './ocr.request.dto';
+export const genericResponeType = (dto: OCRRequestDto) => {
+ let contentDescription = [OCRServiceType.HARD_DOCUMENT_READING, OCRServiceType.RECHARGE_CARD, OCRServiceType.CURRENCY_ID].includes(dto.ocrServiceType) ? `If this image is essentially a document like ${Object.values(Hard_Document_Type).join(", ")} or textual, this should be the verbatim of text as detected, maintaining formats including paragraphs. Otherwise, this should be a detailed descriptive narration of every detail observed in the image, including positioning, helpful or guide to a visually impaired person. `:  `Provide a comprehensive, objective, accessibility-focused narration of the image for a visually impaired person. Start with a concise overview of the scene, then describe people including posture and emotion, objects, actions, spatial relationships, environment, colors, visible text, and other relevant visual details. Use positional descriptions such as left, right, foreground, background, above, below, near, and far where useful. Prioritize information that helps the user understand the scene and its context. Indicate any inscriptions on objects. Do not invent or speculate about details that cannot be reliably determined from the image. Clearly indicate uncertainty when necessary.`
+ 
+  return ({
   type: Type.OBJECT,
   properties: {
     confidence: {
@@ -10,13 +14,14 @@ export const genericResponeType = {
     documentType: {type: Type.STRING, description: `What type of document is this eg ${Object.values(Hard_Document_Type).join(", ")}`},
     content: {
       type: Type.STRING,
-      description: `If this image is essentially a document like ${Object.values(Hard_Document_Type).join(", ")} or textual, this shuld be the verbatim of text as detected, maintaining formats including paragraphs. Otherwise, this should be a detailed descriptive narration of every detail observed in the image, including positioning, helpful or guide to a visually impaired person. `,
+      description: contentDescription,
     },
     summary: {
       type: Type.STRING,
       description: 'A very brief summary of what you detected',
     },
   },
+});
 };
 
 export const basicResponseSchema = {

@@ -64,7 +64,7 @@ return null for fields in the response schema that you could not identify.
         return {
             type: genai_1.Type.OBJECT,
             properties: {
-                baseDetail: ocr_responses_dto_1.genericResponeType,
+                baseDetail: (0, ocr_responses_dto_1.genericResponeType)(dto),
                 particulars: responseSchema
             }
         };
