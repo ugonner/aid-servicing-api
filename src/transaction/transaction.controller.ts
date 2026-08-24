@@ -98,7 +98,7 @@ export class TransactionController {
       return ApiResponse.success("Payment handled", payload.data.metadata, HttpStatus.OK);
     } catch (error) {
       //console.error('Webhook error:', error);
-      console.log('Error ', error.message);
+      console.log('Error ', (error as Error).message);
       throw new HttpException(
         'Webhook processing failed',
         HttpStatus.INTERNAL_SERVER_ERROR,

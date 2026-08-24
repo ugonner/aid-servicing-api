@@ -30,19 +30,21 @@ export class JwtGuard extends AuthGuard('jwt') {
     }
 
     try {
+      
+      const token = tokens.accessToken.replace( /\"/g, "");
       const secret = process.env.JWT_ACCESS_SECRET;
-      const expiresin = process.env.JWT_ACCESS_TOKEN_EXPIRATION;
-      console.log("secret", secret, "expires", expiresin);
-      console.log("token", tokens)
+      //const expiresin = process.env.JWT_ACCESS_TOKEN_EXPIRATION;
+      //console.log("secret", secret, "expires", expiresin);
+      //console.log("ACCESS TOKEN", token)
         // Try to verify the access token
-        const decodedAccessToken = this.jwtService.verify(tokens.accessToken, {
-          secret: process.env.JWT_ACCESS_SECRET
+        const decodedAccessToken = this.jwtService.verify(token, {
+          secret
         });
         (request as Request & {user: Auth}).user = decodedAccessToken.user;
         return true;
       
     } catch (error) {
-      console.log("token error", error.message)
+      console.log("token error", (error as Error).message)
       if (error instanceof TokenExpiredError )  throw new UnprocessableEntityException("Token Expired");
       throw new UnauthorizedException('Invalid access token');
     }

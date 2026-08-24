@@ -255,9 +255,9 @@ export class AuthService {
       });
       return { email: payload.email, otp };
     } catch (error) {
-      this.logger.error('Resend verification code failed', error.stack);
+      this.logger.error('Resend verification code failed', (error as Error).stack);
       throw new BadRequestException(
-        error.message || 'Resend verification code failed',
+        (error as Error).message || 'Resend verification code failed',
       );
     }
   }

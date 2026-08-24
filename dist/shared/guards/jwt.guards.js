@@ -26,12 +26,10 @@ let JwtGuard = class JwtGuard extends (0, passport_1.AuthGuard)('jwt') {
             throw new common_1.UnauthorizedException('Session expired, please log in again');
         }
         try {
+            const token = tokens.accessToken.replace(/\"/g, "");
             const secret = process.env.JWT_ACCESS_SECRET;
-            const expiresin = process.env.JWT_ACCESS_TOKEN_EXPIRATION;
-            console.log("secret", secret, "expires", expiresin);
-            console.log("token", tokens);
-            const decodedAccessToken = this.jwtService.verify(tokens.accessToken, {
-                secret: process.env.JWT_ACCESS_SECRET
+            const decodedAccessToken = this.jwtService.verify(token, {
+                secret
             });
             request.user = decodedAccessToken.user;
             return true;
