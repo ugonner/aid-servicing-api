@@ -141,8 +141,9 @@ let CallService = class CallService {
                 });
             });
         }
+        console.log("GETTING CALLS");
         if (userId) {
-            queryBuilder.andWhere(`callMembers.userId = :userId || initiatedBy.userId = :userId`, { userId });
+            queryBuilder.andWhere(`callMembers.userId = :userId OR initiatedBy.userId = :userId`, { userId });
         }
         if (aidServiceProfileId) {
             queryBuilder.andWhere(`aidServiceProfile.id = :aidServiceProfileId`, { aidServiceProfileId });
@@ -160,11 +161,11 @@ let CallService = class CallService {
                 searchTerm: `%${searchTerm.toLowerCase().trim()}%`,
             });
         }
-        const [data, total] = await queryBuilder
+        queryBuilder
             .orderBy(`callRoom.${queryOrderBy}`, queryOrder)
             .skip((queryPage - 1) * queryLimit)
-            .limit(queryLimit)
-            .getManyAndCount();
+            .limit(queryLimit);
+        const [data, total] = await queryBuilder.getManyAndCount();
         return { page: queryPage, limit: queryLimit, total, data };
     }
     async getUserCalls(userId) {

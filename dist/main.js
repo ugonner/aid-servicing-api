@@ -12,7 +12,7 @@ async function bootstrap() {
         cert: fs.readFileSync(path.join(__dirname, "..", "openssl", "cert.pem")),
         key: fs.readFileSync(path.join(__dirname, "..", "openssl", "key.pem"))
     };
-    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, { httpsOptions });
     app.setGlobalPrefix('api');
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
